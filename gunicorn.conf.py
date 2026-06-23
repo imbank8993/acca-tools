@@ -4,8 +4,10 @@
 # Only used on the Linux VPS. Local dev on Windows/macOS still uses the
 # built-in Flask server via the run.* launchers.
 
-# Bind to localhost only — aaPanel's Nginx reverse-proxies the public subdomain to this.
-bind = "127.0.0.1:3004"
+# Bind. 0.0.0.0 = reachable directly at http://<VPS_IP>:3004 (no domain yet).
+# Once it's behind a domain + Nginx reverse proxy, change back to "127.0.0.1:3004"
+# so only the local proxy (not the whole internet) can reach gunicorn.
+bind = "0.0.0.0:3004"
 
 # Write the master PID here so the auto-deploy hook (scripts/deploy.sh) can send
 # a graceful reload signal (kill -HUP) after pulling new code — zero downtime.
