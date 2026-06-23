@@ -1,7 +1,23 @@
+import os
+from datetime import timedelta
+
 from flask import Flask, render_template
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100 MB max upload
+
+# ── Auth / SSO config ──────────────────────────────
+# SSO is enabled only when TOOLS_SSO_SECRET is set (production). Without it the
+# app stays fully open, so local development needs no extra setup.
+app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-only-insecure-key")
+app.config["TOOLS_SSO_SECRET"] = os.environ.get("TOOLS_SSO_SECRET", "")
+app.config["ACCA_APP_URL"] = os.environ.get("ACCA_APP_URL", "https://acca.icgowa.sch.id").rstrip("/")
+app.config["SSO_ENABLED"] = bool(app.config["TOOLS_SSO_SECRET"])
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# Secure cookies require HTTPS. Set SESSION_COOKIE_SECURE=0 only for http testing.
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSION_COOKIE_SECURE", "1") != "0"
 
 TOOL_CATEGORIES = [
     {
@@ -218,6 +234,7 @@ from routes.dev_tools import bp as dev_bp
 from routes.archive_tools import bp as archive_bp
 from routes.media_tools import bp as media_bp
 from routes.capabilities import bp as capabilities_bp
+from routes.auth import bp as auth_bp
 
 app.register_blueprint(convert_bp, url_prefix="/convert")
 app.register_blueprint(pdf_bp, url_prefix="/pdf")
@@ -231,6 +248,7 @@ app.register_blueprint(dev_bp, url_prefix="/dev")
 app.register_blueprint(archive_bp, url_prefix="/archive")
 app.register_blueprint(media_bp, url_prefix="/media")
 app.register_blueprint(capabilities_bp)
+app.register_blueprint(auth_bp)
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

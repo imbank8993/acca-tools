@@ -197,3 +197,46 @@ Buka `https://acca-tools.icgowa.sch.id` — harus muncul ACCA TOOLS. ✅
 - **`gunicorn.pid not found`** → app belum di-start lewat aaPanel, atau `pidfile` di `gunicorn.conf.py`
   tidak ter-load. Restart sekali dari aaPanel.
 - **Fitur konversi "unavailable"** → binary opsional belum terpasang (Step 2).
+
+---
+
+## Step 8 — SSO: hanya bisa diakses setelah login acca-app
+
+ACCA TOOLS bisa dikunci di belakang login acca-app. Alurnya: user buka tools tanpa
+sesi → ditendang ke `acca-app/api/sso/tools` → acca-app menandatangani JWT pendek →
+balik ke `tools/auth/sso?token=...` → Flask buka sesi. **Wajib HTTPS.**
+
+SSO **aktif hanya jika `TOOLS_SSO_SECRET` di-set**. Tanpa itu, app terbuka (cocok untuk dev).
+
+### Di acca-tools (VPS)
+
+Buat file `/www/wwwroot/acca-tools/.env` (otomatis dibaca systemd, tidak ikut git):
+
+```ini
+TOOLS_SSO_SECRET=<secret-acak-yang-sama-dengan-acca-app>
+FLASK_SECRET_KEY=<secret-acak-lain-khusus-tools>
+ACCA_APP_URL=https://acca.icgowa.sch.id
+# SESSION_COOKIE_SECURE=0   # hanya kalau tes via http (tanpa SSL)
+```
+
+Buat secret acak:
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Lalu:
+```bash
+sudo systemctl restart acca-tools
+```
+
+### Di acca-app (repo Next.js terpisah)
+
+1. File baru `app/api/sso/tools/route.ts` (sudah disiapkan) — menandatangani token.
+2. Env (`.env.production` / Vercel):
+   - `TOOLS_SSO_SECRET=` **(sama persis dengan acca-tools)**
+   - `NEXT_PUBLIC_TOOLS_URL=https://unelma.site` (URL tools saat ini)
+3. (Opsional) Tombol "Buka ACCA TOOLS" yang menaut ke `/api/sso/tools`.
+4. Deploy acca-app.
+
+> `FLASK_SECRET_KEY` cukup di acca-tools (untuk tanda tangan cookie sesi).
+> `TOOLS_SSO_SECRET` harus **identik** di kedua app.

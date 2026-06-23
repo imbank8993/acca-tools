@@ -15,6 +15,9 @@ After=network.target
 [Service]
 User=root
 WorkingDirectory=/www/wwwroot/acca-tools
+# Loads SSO secrets (TOOLS_SSO_SECRET, FLASK_SECRET_KEY, ACCA_APP_URL).
+# The leading "-" makes it optional, so the app still starts (SSO off) if absent.
+EnvironmentFile=-/www/wwwroot/acca-tools/.env
 ExecStart=/www/wwwroot/acca-tools/.venv/bin/gunicorn -c gunicorn.conf.py app:app
 ExecReload=/bin/kill -s HUP $MAINPID
 Restart=always
