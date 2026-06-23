@@ -107,16 +107,33 @@ Tes gunicorn jalan:
 
 ---
 
-## Step 5 — Jalankan proses di aaPanel (Python Project Manager)
+## Step 5 — Jalankan proses dengan systemd (cara terpakai)
 
-1. aaPanel → **App Store** → install **Python Project Manager** (jika belum ada).
-2. **Add Project**:
-   - **Project path:** `/www/wwwroot/acca-tools`
-   - **Startup command:** `gunicorn -c gunicorn.conf.py app:app`
-   - **Port:** `3004`
-   - **Python:** gunakan `.venv` project (atau Python 3.10+)
-   - **Auto start:** ON
-3. **Start** — status harus **Running** (hijau). File `gunicorn.pid` akan muncul di folder project.
+Port `3003` sudah dipakai app Next.js lain di VPS — itu sebabnya app ini pakai `3004`.
+Proses dijalankan permanen lewat **systemd** (auto-start saat boot, auto-restart kalau crash):
+
+```bash
+sudo cp deploy/acca-tools.service /etc/systemd/system/acca-tools.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now acca-tools
+
+# verifikasi
+systemctl status acca-tools --no-pager
+ss -ltnp | grep 3004
+curl -I http://127.0.0.1:3004     # harus HTTP/1.1 200 OK
+```
+
+Perintah harian:
+```bash
+systemctl reload acca-tools     # reload worker tanpa downtime (HUP)
+systemctl restart acca-tools    # restart penuh
+journalctl -u acca-tools -n 50  # lihat log
+```
+
+> **Alternatif aaPanel Python Project Manager:** kalau ingin semua dalam panel, bisa juga —
+> startup command `/www/wwwroot/acca-tools/.venv/bin/gunicorn -c gunicorn.conf.py app:app`,
+> port `3004`, Auto-start ON. **Pilih salah satu saja** (systemd ATAU aaPanel), jangan dua-duanya
+> agar tidak rebutan port 3004.
 
 ---
 
