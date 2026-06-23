@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Auto-deploy hook for ACCA TOOLS.
-# Called by the aaPanel Webhook each time GitHub receives a push to `main`.
-# Pulls new code, refreshes dependencies, and reloads the app (zero-downtime).
+# Auto-deploy hook for ACCA TOOLS (called by the aaPanel Webhook on push to main).
+# Pulls new code, installs core deps, and reloads the app (zero-downtime).
 
 set -e
 
@@ -12,18 +11,17 @@ echo "[deploy] $(date '+%Y-%m-%d %H:%M:%S') — pulling latest code..."
 git fetch --quiet origin main
 git reset --hard origin/main
 
-echo "[deploy] installing dependencies..."
+echo "[deploy] installing core dependencies..."
 ./.venv/bin/pip install -q -r requirements-core.txt -r requirements-prod.txt
-# Optional packages may need system libs; never fail the deploy on them.
-./.venv/bin/pip install -q -r requirements-optional.txt || true
+# NOTE: heavy OPTIONAL deps (rembg, whisper, etc.) are intentionally NOT installed
+# on every deploy — they are large/slow and rarely change, which would make the
+# webhook hang. Install them manually once when needed:
+#   ./.venv/bin/pip install -r requirements-optional.txt
 
-# Reload the app. systemd is the process manager (see deploy/acca-tools.service);
-# `reload` sends HUP to gunicorn's master = graceful worker reload, no downtime.
+echo "[deploy] reloading app..."
 if systemctl is-active --quiet acca-tools; then
-  echo "[deploy] reloading via systemd..."
   systemctl reload acca-tools || systemctl restart acca-tools
 elif [ -f gunicorn.pid ]; then
-  echo "[deploy] reloading gunicorn (HUP)..."
   kill -HUP "$(cat gunicorn.pid)"
 else
   echo "[deploy] WARNING: app not running under systemd and no gunicorn.pid found."
