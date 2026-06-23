@@ -84,8 +84,12 @@ a { color: var(--primary); text-decoration: none; }
 }
 
 .sidebar-header {
-    padding: 1.2rem 1.4rem;
+    padding: 0 1.4rem;
+    min-height: 61px;
+    display: flex;
+    align-items: center;
     border-bottom: 1px solid var(--border);
+    box-sizing: border-box;
 }
 
 .logo {
@@ -201,12 +205,14 @@ a { color: var(--primary); text-decoration: none; }
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     padding: .8rem 1.5rem;
+    min-height: 61px;
     display: flex;
     align-items: center;
     gap: 1rem;
     position: sticky;
     top: 0;
     z-index: 50;
+    box-sizing: border-box;
 }
 .top-title { font-weight: 600; font-size: 1.05rem; }
 
@@ -353,7 +359,7 @@ html.theme-animate *::after {
 
 .content-area {
     flex: 1;
-    padding: 2rem;
+    padding: 1.25rem 2rem 2rem;
     max-width: 1100px;
     width: 100%;
     margin: 0 auto;
@@ -394,13 +400,13 @@ html.theme-animate *::after {
 /* ── Home Page ────────────────────────────────── */
 .home-hero {
     text-align: center;
-    padding: 2rem 0 2.5rem;
+    padding: 0 0 1.25rem;
 }
 .home-hero h1 { font-size: 2rem; margin-bottom: .4rem; }
 .home-hero p { color: var(--text-light); font-size: 1.05rem; }
 
 .home-search {
-    margin: 1.25rem auto 0;
+    margin: 0 auto;
     max-width: 480px;
 }
 .home-search input {
