@@ -37,7 +37,7 @@ Cloudflare → `icgowa.sch.id` → **DNS** → **Add record**:
 
 | Type | Name | Content | Proxy |
 |---|---|---|---|
-| `A` | `acca-tools` | `103.247.9.185` | Proxied (oranye) |
+| `A` | `acca-tools` | `194.233.81.192` | Proxied (oranye) |
 
 ---
 
@@ -162,7 +162,7 @@ Buka `https://acca-tools.icgowa.sch.id` — harus muncul ACCA TOOLS. ✅
 3. Buka **Webhook** → **Add Hook**:
    - **Name:** `acca-tools-deploy`
    - **Script / Execute:** `bash /www/wwwroot/acca-tools/scripts/deploy.sh`
-   - aaPanel akan memberi **URL webhook** (mis. `http://103.247.9.185:port/hook?name=acca-tools-deploy&secret=...`).
+   - aaPanel akan memberi **URL webhook** (mis. `http://194.233.81.192:port/hook?name=acca-tools-deploy&secret=...`).
 4. GitHub → repo **acca-tools** → **Settings → Webhooks → Add webhook**:
    - **Payload URL:** tempel URL dari aaPanel
    - **Content type:** `application/json`
