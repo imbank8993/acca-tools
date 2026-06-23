@@ -1,126 +1,130 @@
-# Deploy ACCA TOOLS ke VPS — Panduan Lengkap
+# Deploy ACCA TOOLS ke VPS — aaPanel + Webhook
 
-App ini **Python/Flask** (bukan Next.js seperti acca-app / acca-cbt), jadi di VPS dijalankan
-dengan **gunicorn** lewat **aaPanel → Python Project Manager**. Pola DNS, reverse proxy,
-dan GitHub Actions sama persis dengan acca-cbt.
+App ini **Python/Flask**, dijalankan dengan **gunicorn** dan dikelola lewat **aaPanel**.
+Auto-deploy memakai **aaPanel Webhook + Deploy Key** (TANPA GitHub Actions, TANPA 4 secret) —
+sama dengan cara Anda mengelola acca-cbt di aaPanel.
 
 | Item | Nilai |
 |---|---|
 | Subdomain | `acca-tools.icgowa.sch.id` |
 | Folder di VPS | `/www/wwwroot/acca-tools` |
-| Port lokal (gunicorn) | `3003` (diatur di `gunicorn.conf.py`) |
-| Proses | gunicorn `app:app`, dikelola aaPanel |
-| VPS | `103.247.9.185` (Ubuntu + aaPanel), SSH `root` port `22` |
+| Repo | `git@github.com:imbank8993/acca-tools.git` (privat) |
+| Port lokal (gunicorn) | `3003` (`gunicorn.conf.py`) |
+| Auto-deploy | GitHub Webhook → aaPanel jalankan `scripts/deploy.sh` |
 
-> Catatan: `acca.icgowa.sch.id` **sudah dipakai acca-app** — jangan dipakai ulang.
+> `acca.icgowa.sch.id` sudah dipakai acca-app — jangan dipakai ulang.
 
 ---
 
-## Step 0 — Push project ke GitHub
+## Bagaimana auto-deploy bekerja
 
-Buat repo baru (mis. `github.com/imbank8993/acca-tools`), lalu dari komputer:
-
-```bash
-cd your-everyday-tools
-git init
-git add .
-git commit -m "ACCA TOOLS — initial"
-git branch -M main
-git remote add origin git@github.com:imbank8993/acca-tools.git
-git push -u origin main
+```
+git push (main) ─► GitHub kirim WEBHOOK ─► aaPanel di VPS ─► scripts/deploy.sh
+                                                              ├─ git pull       (pakai DEPLOY KEY read-only)
+                                                              ├─ pip install
+                                                              └─ kill -HUP gunicorn  (reload tanpa downtime)
 ```
 
-> Branch default di sini **`main`**. Kalau Anda pakai `master`, ubah `branches: ["main"]`
-> di `.github/workflows/deploy.yml` jadi `master`.
+- **Deploy Key (read-only)** = izin agar VPS bisa `git pull` repo privat. Bukan pemicu.
+- **Webhook** = pemicu otomatis saat ada push.
+- **4 GitHub Secrets TIDAK diperlukan** (itu hanya untuk GitHub Actions).
 
 ---
 
 ## Step 1 — DNS di Cloudflare
 
-Cloudflare → domain `icgowa.sch.id` → **DNS** → **Add record**:
+Cloudflare → `icgowa.sch.id` → **DNS** → **Add record**:
 
 | Type | Name | Content | Proxy |
 |---|---|---|---|
 | `A` | `acca-tools` | `103.247.9.185` | Proxied (oranye) |
 
-Hasilnya: `acca-tools.icgowa.sch.id` → VPS Anda. (Sama seperti waktu menambah `acca-cbt`.)
-
 ---
 
-## Step 2 — Siapkan dependency sistem di VPS (sekali saja)
-
-Beberapa tool butuh binary eksternal. Tool tetap jalan tanpa ini, tapi fitur terkait
-akan nonaktif. Install yang Anda butuhkan:
+## Step 2 — Dependency sistem di VPS (sekali saja)
 
 ```bash
-# konversi dokumen (Word/PPT/Excel ↔ PDF, fidelitas tinggi)
-apt update && apt install -y libreoffice
-
-# audio/video
-apt install -y ffmpeg
-
-# OCR (PDF/gambar → teks)
-apt install -y tesseract-ocr tesseract-ocr-ind   # +bahasa Indonesia
-
-# library untuk Pillow/WeasyPrint dll (umumnya sudah ada)
-apt install -y python3-venv python3-dev build-essential
+apt update
+apt install -y python3-venv python3-dev build-essential   # wajib
+apt install -y libreoffice                                # konversi Office ↔ PDF (opsional)
+apt install -y ffmpeg                                      # audio/video (opsional)
+apt install -y tesseract-ocr tesseract-ocr-ind            # OCR + bahasa Indonesia (opsional)
 ```
 
-> `python3 -m venv` wajib ada — dipakai workflow untuk membuat `.venv`.
+Tool tetap jalan tanpa paket opsional — fitur terkait saja yang nonaktif (cek di `/capabilities`).
 
 ---
 
-## Step 3 — Clone project ke VPS
+## Step 3 — Deploy Key (read-only) agar VPS bisa `git pull`
+
+```bash
+# Di VPS — buat key khusus repo ini (jangan pakai ulang key repo lain)
+ssh-keygen -t ed25519 -f /root/.ssh/acca-tools_deploy -N "" -q
+cat /root/.ssh/acca-tools_deploy.pub   # salin output-nya
+```
+
+GitHub → repo **acca-tools** → **Settings → Deploy keys → Add deploy key** →
+tempel public key → **JANGAN** centang "Allow write access" (cukup read-only) → **Add key**.
+
+Karena VPS Anda punya beberapa repo dari `github.com`, pakai **Host alias** agar key-nya tidak bentrok:
+
+```bash
+# Di VPS — tambahkan ke ~/.ssh/config
+cat >> /root/.ssh/config <<'EOF'
+
+Host github-acca-tools
+  HostName github.com
+  IdentityFile ~/.ssh/acca-tools_deploy
+  IdentitiesOnly yes
+EOF
+```
+
+---
+
+## Step 4 — Clone & siapkan venv
 
 ```bash
 cd /www/wwwroot
-git clone git@github.com:imbank8993/acca-tools.git acca-tools
+git clone git@github-acca-tools:imbank8993/acca-tools.git acca-tools
 cd acca-tools
 
-# buat venv + install (workflow juga melakukan ini, tapi lakukan sekali manual dulu)
 python3 -m venv .venv
 ./.venv/bin/pip install --upgrade pip
 ./.venv/bin/pip install -r requirements-core.txt -r requirements-prod.txt
 ./.venv/bin/pip install -r requirements-optional.txt || true
+
+# pastikan origin memakai host alias (agar deploy.sh bisa pull tanpa diminta password)
+git remote set-url origin git@github-acca-tools:imbank8993/acca-tools.git
+git pull origin main    # tes — harus berhasil tanpa prompt
 ```
 
-Tes cepat gunicorn jalan:
+Tes gunicorn jalan:
 
 ```bash
 ./.venv/bin/gunicorn -c gunicorn.conf.py app:app
-# Ctrl+C untuk stop setelah lihat "Listening at: http://127.0.0.1:3003"
+# lihat "Listening at: http://127.0.0.1:3003", lalu Ctrl+C
 ```
 
 ---
 
-## Step 4 — Daftarkan proses di aaPanel (Python Project Manager)
+## Step 5 — Jalankan proses di aaPanel (Python Project Manager)
 
-1. Login aaPanel (`http://103.247.9.185:7800` atau sesuai setting Anda).
-2. **App Store** → cari **"Python Project Manager"** → install kalau belum ada.
-3. **Python Project Manager** → **Add Project**:
+1. aaPanel → **App Store** → install **Python Project Manager** (jika belum ada).
+2. **Add Project**:
    - **Project path:** `/www/wwwroot/acca-tools`
-   - **Run mode / framework:** pilih **gunicorn** (atau "Custom command")
-   - **Startup file / command:**
-     `gunicorn -c gunicorn.conf.py app:app`
+   - **Startup command:** `gunicorn -c gunicorn.conf.py app:app`
    - **Port:** `3003`
-   - **Python version:** gunakan venv di project (`.venv`) jika ada opsinya, atau Python 3.10+
-   - **Auto start:** ON (nyala lagi setelah reboot)
-4. **Start** — status harus **Running** (hijau).
-
-> Mulai sekarang, **aaPanel** yang start/stop/restart app. Setelah tiap deploy,
-> klik **Restart** di sini (atau aktifkan watch/auto-reload kalau tersedia).
+   - **Python:** gunakan `.venv` project (atau Python 3.10+)
+   - **Auto start:** ON
+3. **Start** — status harus **Running** (hijau). File `gunicorn.pid` akan muncul di folder project.
 
 ---
 
-## Step 5 — Reverse proxy + HTTPS di aaPanel
+## Step 6 — Reverse proxy + HTTPS di aaPanel
 
-1. aaPanel → **Website** → **Add site**:
-   - **Domain:** `acca-tools.icgowa.sch.id`
-   - tipe situs: kosong/static dulu (kita pakai reverse proxy).
-2. Buka site itu → **Reverse Proxy** → **Add**:
-   - **Target URL:** `http://127.0.0.1:3003`
-   - **Send Domain:** `$host`
-3. Di konfigurasi proxy, pastikan ada batas upload besar (app mengizinkan 100 MB):
+1. aaPanel → **Website** → **Add site** → domain `acca-tools.icgowa.sch.id`.
+2. Buka site → **Reverse Proxy** → **Add** → Target `http://127.0.0.1:3003`, Send Domain `$host`.
+3. Tambahkan di konfigurasi proxy (app mengizinkan upload 100 MB):
 
    ```nginx
    client_max_body_size 100m;
@@ -128,50 +132,51 @@ Tes cepat gunicorn jalan:
    proxy_send_timeout 300s;
    ```
 
-4. **SSL** → **Let's Encrypt** (atau mode Cloudflare) → aktifkan **Force HTTPS**.
+4. **SSL** → Let's Encrypt (atau mode Cloudflare) → aktifkan **Force HTTPS**.
 
 Buka `https://acca-tools.icgowa.sch.id` — harus muncul ACCA TOOLS. ✅
 
 ---
 
-## Step 6 — GitHub Secrets (untuk auto-deploy)
+## Step 7 — Auto-deploy via Webhook
 
-GitHub repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
-(sama persis seperti acca-cbt):
+1. Pastikan skrip bisa dieksekusi: `chmod +x /www/wwwroot/acca-tools/scripts/deploy.sh`
+2. aaPanel → **App Store** → install **Webhook** (jika belum ada).
+3. Buka **Webhook** → **Add Hook**:
+   - **Name:** `acca-tools-deploy`
+   - **Script / Execute:** `bash /www/wwwroot/acca-tools/scripts/deploy.sh`
+   - aaPanel akan memberi **URL webhook** (mis. `http://103.247.9.185:port/hook?name=acca-tools-deploy&secret=...`).
+4. GitHub → repo **acca-tools** → **Settings → Webhooks → Add webhook**:
+   - **Payload URL:** tempel URL dari aaPanel
+   - **Content type:** `application/json`
+   - **Events:** *Just the push event*
+   - **Active:** ✓
+5. Tes: ubah sesuatu → `git push` → cek di GitHub tab **Webhooks** (centang hijau "Recent Deliveries"),
+   dan `scripts/deploy.sh` akan menjalankan pull + reload gunicorn otomatis.
 
-| Secret | Value |
-|---|---|
-| `SSH_HOST` | `103.247.9.185` |
-| `SSH_USER` | `root` |
-| `SSH_KEY` | isi private key `/root/.ssh/id_ed25519` di VPS |
-| `SSH_PORT` | `22` |
-
-Deploy key GitHub untuk `git pull` di VPS: ikuti langkah yang sama seperti acca-cbt
-(GitHub repo → **Settings → Deploy Keys** → paste `/root/.ssh/deploy_key.pub`, centang
-Allow write access), lalu set remote:
-
-```bash
-cd /www/wwwroot/acca-tools
-git remote set-url origin git@github.com:imbank8993/acca-tools.git
-git pull origin main   # harus berhasil
-```
+> `scripts/deploy.sh` melakukan `git pull` → `pip install` → `kill -HUP` (reload gunicorn
+> tanpa downtime, memanfaatkan `gunicorn.pid`). Tidak perlu klik restart manual.
 
 ---
 
 ## Alur kerja sehari-hari
 
 1. Edit di lokal → `git push origin main`
-2. GitHub Actions ("Deploy to VPS") SSH ke VPS → `git pull` → refresh `.venv`
-3. Klik **Restart** di aaPanel Python Project Manager (atau watch-mode otomatis)
+2. GitHub panggil webhook → aaPanel jalankan `scripts/deploy.sh`
+3. App ter-update otomatis (gunicorn reload). Selesai.
 
 ---
 
 ## Troubleshooting
 
-- **502 Bad Gateway** → proses gunicorn mati. Cek di aaPanel Python Manager (Running?),
-  cek log proses. Pastikan port `3003` sama antara `gunicorn.conf.py` dan reverse proxy.
+- **502 Bad Gateway** → proses gunicorn mati / port salah. Cek aaPanel Python Manager (Running?),
+  pastikan port `3003` sama di `gunicorn.conf.py` dan reverse proxy.
 - **413 Request Entity Too Large** → tambahkan `client_max_body_size 100m;` di reverse proxy.
-- **Upload besar / video timeout** → naikkan `proxy_read_timeout` (Nginx) dan `timeout` (gunicorn).
-- **Fitur konversi "unavailable"** → binary belum terinstall (Step 2). Cek `/capabilities`.
-- **`python3 -m venv` gagal** → `apt install -y python3-venv`.
-- **`Permission denied (publickey)` saat deploy** → deploy key belum terdaftar di GitHub.
+- **Upload/konversi besar timeout** → naikkan `proxy_read_timeout` (Nginx) & `timeout` (gunicorn).
+- **Webhook tidak jalan** → cek "Recent Deliveries" di GitHub Webhooks; pastikan port webhook aaPanel
+  terbuka di firewall; pastikan `deploy.sh` executable (`chmod +x`).
+- **`git pull` minta password / Permission denied** → Deploy key belum terdaftar, atau remote belum
+  pakai `git@github-acca-tools:...` (Host alias di `~/.ssh/config`).
+- **`gunicorn.pid not found`** → app belum di-start lewat aaPanel, atau `pidfile` di `gunicorn.conf.py`
+  tidak ter-load. Restart sekali dari aaPanel.
+- **Fitur konversi "unavailable"** → binary opsional belum terpasang (Step 2).
