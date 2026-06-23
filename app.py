@@ -204,12 +204,28 @@ TOOL_CATEGORIES = [
 ]
 
 
+_STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+
+
+def _asset_version():
+    """Cache-bust CSS/JS using their newest mtime, so deploys show instantly."""
+    paths = [
+        os.path.join(_STATIC_DIR, "css", "style.css"),
+        os.path.join(_STATIC_DIR, "js", "main.js"),
+    ]
+    try:
+        return str(int(max(os.path.getmtime(p) for p in paths)))
+    except OSError:
+        return "1"
+
+
 @app.context_processor
 def inject_tools():
     return {
         "tool_categories": TOOL_CATEGORIES,
         "acca_app_url": app.config["ACCA_APP_URL"],
         "sso_enabled": app.config["SSO_ENABLED"],
+        "asset_version": _asset_version(),
     }
 
 
