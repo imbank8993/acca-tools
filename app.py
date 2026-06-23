@@ -13,7 +13,10 @@ app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-only-insecure
 app.config["TOOLS_SSO_SECRET"] = os.environ.get("TOOLS_SSO_SECRET", "")
 app.config["ACCA_APP_URL"] = os.environ.get("ACCA_APP_URL", "https://acca.icgowa.sch.id").rstrip("/")
 app.config["SSO_ENABLED"] = bool(app.config["TOOLS_SSO_SECRET"])
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
+# Absolute session age — after this, the gate re-checks with acca-app, so a
+# logout there cuts access here within this window. Tune via SSO_MAX_AGE_MINUTES.
+app.config["SSO_MAX_AGE_SECONDS"] = int(os.environ.get("SSO_MAX_AGE_MINUTES", "30")) * 60
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(seconds=app.config["SSO_MAX_AGE_SECONDS"])
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 # Secure cookies require HTTPS. Set SESSION_COOKIE_SECURE=0 only for http testing.
@@ -203,7 +206,11 @@ TOOL_CATEGORIES = [
 
 @app.context_processor
 def inject_tools():
-    return {"tool_categories": TOOL_CATEGORIES}
+    return {
+        "tool_categories": TOOL_CATEGORIES,
+        "acca_app_url": app.config["ACCA_APP_URL"],
+        "sso_enabled": app.config["SSO_ENABLED"],
+    }
 
 
 @app.route("/")

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akses Ditolak — ACCA TOOLS</title>
+    <script>
+        (function () {
+            var stored = localStorage.getItem('theme') || 'system';
+            var resolved = stored === 'dark' ? 'dark'
+                : stored === 'light' ? 'light'
+                : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.dataset.theme = resolved;
+        })();
+    </script>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/acca-icon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/icons.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body { display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+        .denied-card {
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            padding: 2.5rem 2rem;
+        }
+        .denied-logo { height: 38px; width: auto; margin-bottom: 1.25rem; }
+        .denied-icon {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: .75rem;
+            display: block;
+        }
+        .denied-card h1 { font-size: 1.35rem; margin-bottom: .5rem; color: var(--text); }
+        .denied-card p { color: var(--text-light); line-height: 1.6; margin-bottom: 1.75rem; }
+        .denied-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            padding: .7rem 1.5rem;
+            background: var(--primary);
+            color: #fff;
+            border-radius: 10px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background .15s, transform .1s;
+        }
+        .denied-btn:hover { background: var(--primary-dark); }
+        .denied-btn:active { transform: scale(.97); }
+        .denied-foot { margin-top: 1.5rem; font-size: .8rem; color: var(--text-light); }
+    </style>
+</head>
+<body>
+    <div class="denied-card">
+        <img src="{{ url_for('static', filename='images/acca-logo.png') }}" alt="ACCA" class="denied-logo">
+        <i class="bi bi-shield-lock-fill denied-icon"></i>
+        <h1>Anda tidak memiliki akses</h1>
+        <p>Harap login terlebih dahulu di <strong>ACCA</strong> untuk membuka ACCA TOOLS.</p>
+        <a href="{{ acca_app_url }}/login" class="denied-btn">
+            <i class="bi bi-box-arrow-in-right"></i> Login di ACCA
+        </a>
+        <div class="denied-foot">MAN Insan Cendekia Gowa</div>
+    </div>
+</body>
+</html>
