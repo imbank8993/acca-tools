@@ -9,7 +9,7 @@ sama dengan cara Anda mengelola acca-cbt di aaPanel.
 | Subdomain | `acca-tools.icgowa.sch.id` |
 | Folder di VPS | `/www/wwwroot/acca-tools` |
 | Repo | `git@github.com:imbank8993/acca-tools.git` (privat) |
-| Port lokal (gunicorn) | `3003` (`gunicorn.conf.py`) |
+| Port lokal (gunicorn) | `3004` (`gunicorn.conf.py`) |
 | Auto-deploy | GitHub Webhook → aaPanel jalankan `scripts/deploy.sh` |
 
 > `acca.icgowa.sch.id` sudah dipakai acca-app — jangan dipakai ulang.
@@ -102,7 +102,7 @@ Tes gunicorn jalan:
 
 ```bash
 ./.venv/bin/gunicorn -c gunicorn.conf.py app:app
-# lihat "Listening at: http://127.0.0.1:3003", lalu Ctrl+C
+# lihat "Listening at: http://127.0.0.1:3004", lalu Ctrl+C
 ```
 
 ---
@@ -113,7 +113,7 @@ Tes gunicorn jalan:
 2. **Add Project**:
    - **Project path:** `/www/wwwroot/acca-tools`
    - **Startup command:** `gunicorn -c gunicorn.conf.py app:app`
-   - **Port:** `3003`
+   - **Port:** `3004`
    - **Python:** gunakan `.venv` project (atau Python 3.10+)
    - **Auto start:** ON
 3. **Start** — status harus **Running** (hijau). File `gunicorn.pid` akan muncul di folder project.
@@ -123,7 +123,7 @@ Tes gunicorn jalan:
 ## Step 6 — Reverse proxy + HTTPS di aaPanel
 
 1. aaPanel → **Website** → **Add site** → domain `acca-tools.icgowa.sch.id`.
-2. Buka site → **Reverse Proxy** → **Add** → Target `http://127.0.0.1:3003`, Send Domain `$host`.
+2. Buka site → **Reverse Proxy** → **Add** → Target `http://127.0.0.1:3004`, Send Domain `$host`.
 3. Tambahkan di konfigurasi proxy (app mengizinkan upload 100 MB):
 
    ```nginx
@@ -170,7 +170,7 @@ Buka `https://acca-tools.icgowa.sch.id` — harus muncul ACCA TOOLS. ✅
 ## Troubleshooting
 
 - **502 Bad Gateway** → proses gunicorn mati / port salah. Cek aaPanel Python Manager (Running?),
-  pastikan port `3003` sama di `gunicorn.conf.py` dan reverse proxy.
+  pastikan port `3004` sama di `gunicorn.conf.py` dan reverse proxy.
 - **413 Request Entity Too Large** → tambahkan `client_max_body_size 100m;` di reverse proxy.
 - **Upload/konversi besar timeout** → naikkan `proxy_read_timeout` (Nginx) & `timeout` (gunicorn).
 - **Webhook tidak jalan** → cek "Recent Deliveries" di GitHub Webhooks; pastikan port webhook aaPanel
