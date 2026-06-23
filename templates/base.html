@@ -23,9 +23,14 @@
             <a href="/" class="logo"><img src="{{ url_for('static', filename='images/acca-icon.png') }}" alt="ACCA" class="logo-icon"><span class="logo-text">ACCA TOOLS</span></a>
         </div>
         {% if sso_enabled %}
-        <a href="{{ acca_app_url }}" class="back-to-acca" title="Kembali ke ACCA">
-            <i class="bi bi-arrow-left-short"></i> <span>Kembali ke ACCA</span>
-        </a>
+        <div class="sidebar-links">
+            <a href="{{ acca_app_url }}" class="sidebar-link back" title="Kembali ke ACCA">
+                <i class="bi bi-arrow-left-short"></i> <span>Kembali ke ACCA</span>
+            </a>
+            <a href="{{ acca_app_url }}/api/sso/cbt" target="_blank" rel="noopener" class="sidebar-link" title="Buka ACCA CBT">
+                <i class="bi bi-pencil-square"></i> <span>Buka ACCA CBT</span>
+            </a>
+        </div>
         {% endif %}
         <div class="sidebar-nav">
             {% for cat in tool_categories %}

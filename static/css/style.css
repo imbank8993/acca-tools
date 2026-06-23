@@ -106,11 +106,16 @@ a { color: var(--primary); text-decoration: none; }
     line-height: 1;
 }
 
-.back-to-acca {
+.sidebar-links {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+    margin: .6rem 1rem 0;
+}
+.sidebar-link {
     display: flex;
     align-items: center;
     gap: .35rem;
-    margin: .6rem 1rem 0;
     padding: .5rem .75rem;
     font-size: .82rem;
     font-weight: 600;
@@ -120,12 +125,13 @@ a { color: var(--primary); text-decoration: none; }
     border-radius: 8px;
     transition: background .15s, color .15s, border-color .15s;
 }
-.back-to-acca:hover {
+.sidebar-link:hover {
     background: var(--accent-soft);
     color: var(--primary);
     border-color: var(--primary);
 }
-.back-to-acca i { font-size: 1.1rem; }
+.sidebar-link i { font-size: 1.05rem; }
+.sidebar-link.back { font-weight: 700; }
 
 .sidebar-nav { padding: .5rem 0; flex: 1; }
 
