@@ -39,6 +39,9 @@ def enforce_login():
 @bp.route("/auth/sso")
 def sso():
     """Receive the signed token from acca-app and open a local session."""
+    if not current_app.config.get("SSO_ENABLED"):
+        return redirect(url_for("index"))  # SSO disabled — nothing to verify.
+
     token = request.args.get("token", "")
     if not token:
         return redirect(_login_entry())
@@ -49,9 +52,9 @@ def sso():
             current_app.config["TOOLS_SSO_SECRET"],
             algorithms=["HS256"],
         )
-    except jwt.InvalidTokenError:
-        # Covers expired (tokens live ~2 min), bad signature, malformed, etc.
-        # Just restart the hand-off with acca-app.
+    except jwt.PyJWTError:
+        # Any JWT problem (expired ~2 min, bad signature, malformed, bad key)
+        # → just restart the hand-off with acca-app instead of erroring out.
         return redirect(_login_entry())
 
     session.permanent = True
