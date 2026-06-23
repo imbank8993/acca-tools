@@ -14,6 +14,9 @@
         })();
     </script>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/acca-icon.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/icons.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
@@ -22,16 +25,6 @@
         <div class="sidebar-header">
             <a href="/" class="logo"><img src="{{ url_for('static', filename='images/acca-icon.png') }}" alt="ACCA" class="logo-icon"><span class="logo-text">ACCA TOOLS</span></a>
         </div>
-        {% if sso_enabled %}
-        <div class="sidebar-links">
-            <a href="{{ acca_app_url }}" class="sidebar-link back" title="Kembali ke ACCA">
-                <i class="bi bi-arrow-left-short"></i> <span>Kembali ke ACCA</span>
-            </a>
-            <a href="{{ acca_app_url }}/api/sso/cbt" target="_blank" rel="noopener" class="sidebar-link" title="Buka ACCA CBT">
-                <i class="bi bi-pencil-square"></i> <span>Buka ACCA CBT</span>
-            </a>
-        </div>
-        {% endif %}
         <div class="sidebar-nav">
             {% for cat in tool_categories %}
             <div class="nav-category">
@@ -49,6 +42,16 @@
             </div>
             {% endfor %}
         </div>
+        {% if sso_enabled %}
+        <div class="sidebar-footer">
+            <a href="{{ acca_app_url }}" class="footer-btn" title="Kembali ke ACCA">
+                <i class="bi bi-arrow-left-short"></i><span class="footer-btn-label">ACCA</span>
+            </a>
+            <a href="{{ acca_app_url }}/api/sso/cbt" target="_blank" rel="noopener" class="footer-btn" title="Buka ACCA CBT">
+                <i class="bi bi-pencil-square"></i><span class="footer-btn-label">CBT</span>
+            </a>
+        </div>
+        {% endif %}
     </nav>
 
     <div class="overlay" id="overlay" onclick="closeSidebar()"></div>

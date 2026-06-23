@@ -79,7 +79,7 @@ a { color: var(--primary); text-decoration: none; }
     position: fixed;
     top: 0; left: 0; bottom: 0;
     z-index: 100;
-    overflow-y: auto;
+    overflow: hidden;
     transition: transform .25s ease;
 }
 
@@ -99,41 +99,55 @@ a { color: var(--primary); text-decoration: none; }
     display: block;
 }
 .logo-text {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: var(--primary);
-    letter-spacing: .06em;
+    font-family: 'Montserrat', var(--font);
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: .03em;
     line-height: 1;
+    /* ACCA brand gradient (blue → violet → magenta), matches the ACCA wordmark */
+    background: linear-gradient(120deg, #1e40af 0%, #6d28d9 55%, #be185d 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
 }
 
-.sidebar-links {
+.sidebar-footer {
+    display: flex;
+    gap: .55rem;
+    padding: .75rem 1rem;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.footer-btn {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: .4rem;
-    margin: .6rem 1rem 0;
-}
-.sidebar-link {
-    display: flex;
     align-items: center;
-    gap: .35rem;
-    padding: .5rem .75rem;
-    font-size: .82rem;
-    font-weight: 600;
-    color: var(--text-light);
-    background: var(--bg);
+    gap: .25rem;
+    padding: .6rem .4rem;
+    border-radius: 12px;
     border: 1px solid var(--border);
-    border-radius: 8px;
-    transition: background .15s, color .15s, border-color .15s;
+    background: var(--bg);
+    color: var(--text-light);
+    transition: color .2s ease, border-color .2s ease, background .2s ease, transform .2s ease, box-shadow .2s ease;
 }
-.sidebar-link:hover {
-    background: var(--accent-soft);
+.footer-btn i { font-size: 1.3rem; line-height: 1; }
+.footer-btn-label {
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+.footer-btn:hover {
     color: var(--primary);
     border-color: var(--primary);
+    background: var(--accent-soft);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(37,99,235,.18);
 }
-.sidebar-link i { font-size: 1.05rem; }
-.sidebar-link.back { font-weight: 700; }
 
-.sidebar-nav { padding: .5rem 0; flex: 1; }
+.sidebar-nav { padding: .5rem 0; flex: 1; overflow-y: auto; }
 
 .nav-category-btn {
     width: 100%;
