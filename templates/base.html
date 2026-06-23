@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ACCA TOOLS{% endblock %}</title>
+    <script>
+        (function () {
+            var stored = localStorage.getItem('theme') || 'system';
+            var resolved = stored === 'dark' ? 'dark'
+                : stored === 'light' ? 'light'
+                : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.dataset.theme = resolved;
+        })();
+    </script>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/acca-icon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/icons.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <a href="/" class="logo"><img src="{{ url_for('static', filename='images/acca-icon.png') }}" alt="ACCA" class="logo-icon"><span class="logo-text">ACCA TOOLS</span></a>
+        </div>
+        <div class="sidebar-nav">
+            {% for cat in tool_categories %}
+            <div class="nav-category">
+                <button class="nav-category-btn" onclick="toggleCategory(this)">
+                    <i class="bi {{ cat.icon }}"></i> {{ cat.name }}
+                    <i class="bi bi-chevron-down chevron"></i>
+                </button>
+                <div class="nav-items">
+                    {% for tool in cat.tools %}
+                    <a href="/{{ cat.id }}/{{ tool.id }}" class="nav-item" data-desc="{{ tool.desc | lower }}">
+                        <i class="bi {{ tool.icon }}"></i> {{ tool.name }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </nav>
+
+    <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+    <main class="main-content">
+        <header class="top-bar">
+            <button class="menu-btn" onclick="openSidebar()"><i class="bi bi-list"></i></button>
+            <span class="top-title">MAN Insan Cendekia Gowa</span>
+            <div class="global-search" id="global-search">
+                <input type="text" id="global-search-input" placeholder="Search tools..." autocomplete="off" aria-label="Search tools" aria-expanded="false" aria-controls="global-search-dropdown">
+                <div class="global-search-dropdown" id="global-search-dropdown" role="listbox"></div>
+            </div>
+            <div class="theme-switcher" id="theme-switcher" role="group" aria-label="Color theme">
+                <button class="theme-btn" data-theme-mode="system" title="System theme"><i class="bi bi-circle-half"></i></button>
+                <button class="theme-btn" data-theme-mode="light" title="Light theme"><i class="bi bi-sun-fill"></i></button>
+                <button class="theme-btn" data-theme-mode="dark" title="Dark theme"><i class="bi bi-moon-fill"></i></button>
+            </div>
+        </header>
+        <div class="content-area">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

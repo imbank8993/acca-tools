@@ -1,0 +1,3 @@
+# Production-only dependencies (Linux/VPS).
+# The Windows/macOS dev launchers do NOT install this — they use Flask's dev server.
+gunicorn
