@@ -15,7 +15,7 @@ app.config["ACCA_APP_URL"] = os.environ.get("ACCA_APP_URL", "https://acca.icgowa
 app.config["SSO_ENABLED"] = bool(app.config["TOOLS_SSO_SECRET"])
 # Absolute session age — after this, the gate re-checks with acca-app, so a
 # logout there cuts access here within this window. Tune via SSO_MAX_AGE_MINUTES.
-app.config["SSO_MAX_AGE_SECONDS"] = int(os.environ.get("SSO_MAX_AGE_MINUTES", "30")) * 60
+app.config["SSO_MAX_AGE_SECONDS"] = int(os.environ.get("SSO_MAX_AGE_MINUTES", "15")) * 60
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(seconds=app.config["SSO_MAX_AGE_SECONDS"])
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"

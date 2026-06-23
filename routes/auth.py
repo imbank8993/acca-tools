@@ -92,5 +92,7 @@ def denied():
 
 @bp.route("/logout")
 def logout():
+    """Clear the local session. Called directly, and by acca-app's logout so a
+    single logout there also ends the ACCA TOOLS session immediately."""
     session.clear()
-    return redirect(url_for("auth.denied"))
+    return redirect(f"{current_app.config['ACCA_APP_URL']}/login")
