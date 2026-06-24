@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}ACCA TOOLS{% endblock %}</title>
+    <title>{% block title %}ACCA - TOOLS{% endblock %}</title>
     <script>
         (function () {
             var stored = localStorage.getItem('theme') || 'system';
@@ -23,7 +23,7 @@
 <body>
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <a href="/" class="logo"><img src="{{ url_for('static', filename='images/acca-icon.png') }}" alt="ACCA" class="logo-icon"><span class="logo-text">ACCA TOOLS</span></a>
+            <a href="/" class="logo"><img src="{{ url_for('static', filename='images/acca-icon.png') }}" alt="ACCA" class="logo-icon"><span class="logo-text">ACCA - TOOLS</span></a>
         </div>
         <div class="sidebar-nav">
             {% for cat in tool_categories %}
