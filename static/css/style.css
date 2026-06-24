@@ -878,4 +878,5 @@ textarea { resize: vertical; }
     .content-area { padding: 1rem; }
     .converter-row { flex-direction: column; }
     .inline-form input, .inline-form select { width: 100%; }
+    .top-title { display: none; }
 }
