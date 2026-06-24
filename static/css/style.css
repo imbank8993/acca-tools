@@ -316,6 +316,7 @@ a { color: var(--primary); text-decoration: none; }
     border-radius: 20px;
     padding: 3px;
     margin-left: auto;
+    flex-shrink: 0;
     transition: background .3s ease, border-color .3s ease;
 }
 .theme-btn {
@@ -879,4 +880,5 @@ textarea { resize: vertical; }
     .converter-row { flex-direction: column; }
     .inline-form input, .inline-form select { width: 100%; }
     .top-title { display: none; }
+    .top-bar { padding: .8rem 1rem; }
 }
