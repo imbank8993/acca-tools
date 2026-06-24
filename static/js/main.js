@@ -44,7 +44,13 @@ function initTheme() {
                 btn.classList.add("spinning");
                 setTimeout(() => btn.classList.remove("spinning"), 380);
             }
-            applyTheme(btn.dataset.themeMode, true);
+            if (btn.dataset.themeMode === "system") {
+                const currentTheme = document.documentElement.dataset.theme;
+                const nextTheme = currentTheme === "dark" ? "light" : "dark";
+                applyTheme(nextTheme, true);
+            } else {
+                applyTheme(btn.dataset.themeMode, true);
+            }
         });
     });
     if (window.matchMedia) {

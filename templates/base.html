@@ -42,7 +42,6 @@
             </div>
             {% endfor %}
         </div>
-        {% if sso_enabled %}
         <div class="sidebar-footer">
             <a href="{{ acca_app_url }}" class="footer-btn" title="Kembali ke ACCA">
                 <i class="bi bi-arrow-left-short"></i><span class="footer-btn-label">ACCA</span>
@@ -51,7 +50,6 @@
                 <i class="bi bi-pencil-square"></i><span class="footer-btn-label">CBT</span>
             </a>
         </div>
-        {% endif %}
     </nav>
 
     <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
@@ -65,7 +63,7 @@
                 <div class="global-search-dropdown" id="global-search-dropdown" role="listbox"></div>
             </div>
             <div class="theme-switcher" id="theme-switcher" role="group" aria-label="Color theme">
-                <button class="theme-btn" data-theme-mode="system" title="System theme"><i class="bi bi-circle-half"></i></button>
+                <button class="theme-btn" data-theme-mode="system" title="Toggle theme"><i class="bi bi-circle-half"></i></button>
                 <button class="theme-btn" data-theme-mode="light" title="Light theme"><i class="bi bi-sun-fill"></i></button>
                 <button class="theme-btn" data-theme-mode="dark" title="Dark theme"><i class="bi bi-moon-fill"></i></button>
             </div>
