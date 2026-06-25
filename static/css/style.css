@@ -104,7 +104,7 @@ a { color: var(--primary); text-decoration: none; }
     display: block;
 }
 .logo-text {
-    font-family: 'Montserrat', var(--font);
+    font-family: 'Outfit', 'Montserrat', var(--font);
     font-size: 1.15rem;
     font-weight: 800;
     letter-spacing: .03em;
