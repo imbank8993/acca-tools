@@ -26,7 +26,7 @@ TOOL_CATEGORIES = [
     {
         "id": "convert",
         "name": "Document Conversion",
-        "icon": "bi-file-earmark-arrow-right-fill",
+        "icon": "bi-file-earmark-arrow-up-fill",
         "tools": [
             {"id": "to-pdf", "name": "Files to PDF", "desc": "Convert images and text files to PDF", "icon": "bi-file-pdf-fill"},
             {"id": "pdf-to-word", "name": "PDF to Word", "desc": "Convert PDF to Word document", "icon": "bi-file-word-fill"},

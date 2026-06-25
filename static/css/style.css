@@ -129,17 +129,17 @@ a { color: var(--primary); text-decoration: none; }
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: .4rem;
-    padding: .55rem .5rem;
+    gap: .3rem;
+    padding: .45rem .4rem;
     border: 1.5px solid var(--primary);
-    border-radius: 10px;
+    border-radius: 8px;
     background: var(--accent-soft);
     color: var(--primary);
-    font-size: .82rem;
+    font-size: .78rem;
     font-weight: 700;
     transition: background .2s ease, color .2s ease, box-shadow .2s ease, transform .1s ease;
 }
-.footer-btn i { font-size: 1rem; }
+.footer-btn i { font-size: .9rem; }
 .footer-btn-label { letter-spacing: .02em; }
 .footer-btn:hover {
     background: var(--primary);
