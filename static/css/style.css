@@ -889,7 +889,8 @@ textarea { resize: vertical; }
     .top-title { display: none; }
     .page-home .top-title {
         display: block;
-        font-size: 1.05rem;
+        font-size: 0.9rem;
+        line-height: 1.2;
     }
     .top-bar { padding: .8rem 1rem; }
 }
