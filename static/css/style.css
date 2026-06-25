@@ -216,7 +216,13 @@ a { color: var(--primary); text-decoration: none; }
     z-index: 50;
     box-sizing: border-box;
 }
-.top-title { font-weight: 600; font-size: 1.05rem; }
+.top-title {
+    font-family: 'Outfit', 'Montserrat', var(--font);
+    font-weight: 700;
+    font-size: 1.15rem;
+    letter-spacing: .02em;
+    color: var(--text);
+}
 
 .global-search {
     flex: 1;
@@ -881,5 +887,9 @@ textarea { resize: vertical; }
     .converter-row { flex-direction: column; }
     .inline-form input, .inline-form select { width: 100%; }
     .top-title { display: none; }
+    .page-home .top-title {
+        display: block;
+        font-size: 1.05rem;
+    }
     .top-bar { padding: .8rem 1rem; }
 }

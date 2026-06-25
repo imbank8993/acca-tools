@@ -82,6 +82,10 @@ function closeSidebar() {
 // Highlight active nav item & auto-open its category
 document.addEventListener("DOMContentLoaded", () => {
     const path = window.location.pathname;
+    if (path === "/") {
+        document.body.classList.add("page-home");
+    }
+
     document.querySelectorAll(".nav-item").forEach(a => {
         if (a.getAttribute("href") === path) {
             a.classList.add("active");
