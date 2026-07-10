@@ -43,12 +43,17 @@
             {% endfor %}
         </div>
         <div class="sidebar-footer">
-            <a href="{{ acca_app_url }}" class="footer-btn" title="Kembali ke ACCA">
-                <i class="bi bi-arrow-left-short"></i><span class="footer-btn-label">ACCA</span>
-            </a>
-            <a href="{{ acca_app_url }}/api/sso/cbt" target="_blank" rel="noopener" class="footer-btn" title="Buka ACCA CBT">
-                <i class="bi bi-pencil-square"></i><span class="footer-btn-label">CBT</span>
-            </a>
+            <div class="footer-buttons">
+                <a href="{{ acca_app_url }}" class="footer-btn" title="Kembali ke ACCA">
+                    <i class="bi bi-arrow-left-short"></i><span class="footer-btn-label">ACCA</span>
+                </a>
+                <a href="{{ acca_app_url }}/api/sso/cbt" target="_blank" rel="noopener" class="footer-btn" title="Buka ACCA CBT">
+                    <i class="bi bi-pencil-square"></i><span class="footer-btn-label">CBT</span>
+                </a>
+            </div>
+            <button class="about-btn" onclick="openAboutModal()" title="Tentang ACCA - TOOLS">
+                <i class="bi bi-info-circle"></i> Tentang ACCA - TOOLS
+            </button>
         </div>
     </nav>
 
@@ -72,6 +77,30 @@
             {% block content %}{% endblock %}
         </div>
     </main>
+
+    <!-- About Modal -->
+    <div class="modal" id="about-modal" role="dialog" aria-labelledby="about-modal-title" aria-hidden="true">
+        <div class="modal-overlay" onclick="closeAboutModal()"></div>
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeAboutModal()" aria-label="Close modal">&times;</button>
+            <div class="modal-header">
+                <img src="{{ url_for('static', filename='images/acca-icon.png') }}" alt="ACCA Logo" class="modal-logo">
+                <h2 id="about-modal-title">Tentang ACCA - TOOLS</h2>
+            </div>
+            <div class="modal-body">
+                <p class="about-desc">Kumpulan utilitas web internal untuk lingkungan sekolah MAN Insan Cendekia Gowa.</p>
+                <div class="about-section">
+                    <h3>Lisensi & Kredit</h3>
+                    <p>Aplikasi ini dikembangkan berdasarkan modifikasi dan penyesuaian dari proyek open-source asli <strong>Everyday Tools</strong> yang dibuat oleh pembuat aslinya.</p>
+                    <p>Terima kasih sebesar-besarnya kepada pembuat asli atas kontribusi kodenya. Lisensi asli (MIT License) tetap dipertahankan secara penuh dalam kode sumber aplikasi ini.</p>
+                </div>
+                <div class="about-section">
+                    <h3>Hak Cipta Modifikasi</h3>
+                    <p>&copy; 2026 MAN Insan Cendekia Gowa. Semua hak cipta modifikasi dilindungi undang-undang.</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="{{ url_for('static', filename='js/main.js') }}?v={{ asset_version }}"></script>
     {% block scripts %}{% endblock %}

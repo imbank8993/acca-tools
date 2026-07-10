@@ -535,3 +535,27 @@ function initDependentOptions() {
         check();
     });
 }
+
+/* ── About Modal ─────────────────────────────── */
+function openAboutModal() {
+    const modal = document.getElementById("about-modal");
+    if (modal) {
+        modal.classList.add("open");
+        modal.setAttribute("aria-hidden", "false");
+    }
+}
+
+function closeAboutModal() {
+    const modal = document.getElementById("about-modal");
+    if (modal) {
+        modal.classList.remove("open");
+        modal.setAttribute("aria-hidden", "true");
+    }
+}
+
+// Global key handler for Escape key to close modal
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+        closeAboutModal();
+    }
+});
