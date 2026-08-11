@@ -9,3 +9,4 @@ ezdxf
 matplotlib
 pillow-heif
 openai-whisper
+pix2tex

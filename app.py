@@ -201,6 +201,14 @@ TOOL_CATEGORIES = [
             {"id": "transcribe", "name": "Speech to Text", "desc": "Transcribe audio/video to text or subtitles (Whisper)", "icon": "bi-mic-fill"},
         ],
     },
+    {
+        "id": "acca-plus",
+        "name": "ACCA Plus",
+        "icon": "bi-stars",
+        "tools": [
+            {"id": "latex-ocr", "name": "Formula to LaTeX", "desc": "Ubah foto/gambar rumus matematika menjadi kode LaTeX (pix2tex)", "icon": "bi-calculator-fill"},
+        ],
+    },
 ]
 
 
@@ -256,6 +264,7 @@ from routes.spreadsheet_tools import bp as spreadsheet_bp
 from routes.dev_tools import bp as dev_bp
 from routes.archive_tools import bp as archive_bp
 from routes.media_tools import bp as media_bp
+from routes.acca_plus import bp as acca_plus_bp
 from routes.capabilities import bp as capabilities_bp
 from routes.auth import bp as auth_bp
 
@@ -270,6 +279,7 @@ app.register_blueprint(spreadsheet_bp, url_prefix="/spreadsheet")
 app.register_blueprint(dev_bp, url_prefix="/dev")
 app.register_blueprint(archive_bp, url_prefix="/archive")
 app.register_blueprint(media_bp, url_prefix="/media")
+app.register_blueprint(acca_plus_bp, url_prefix="/acca-plus")
 app.register_blueprint(capabilities_bp)
 app.register_blueprint(auth_bp)
 

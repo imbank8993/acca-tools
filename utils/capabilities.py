@@ -203,6 +203,10 @@ def get_capabilities() -> dict:
             "Install python-pptx with pip install python-pptx.",
             quality="medium",
         ),
+        "pix2tex": _package_engine(
+            "pix2tex", "pix2tex (LaTeX-OCR)", "pix2tex",
+            "Install with: pip install pix2tex (requires PyTorch; model weights ~300 MB downloaded on first use).",
+        ),
     }
 
     return {
@@ -272,6 +276,11 @@ ROUTE_REQUIREMENTS = {
     "/media/burn-subtitles": {"label": "Burn Subtitles", "primary": ["ffmpeg"], "fallback": None},
     "/media/normalize-audio": {"label": "Normalize Audio", "primary": ["ffmpeg"], "fallback": None},
     "/media/transcribe": {"label": "Speech to Text", "primary": ["ffmpeg", "whisper"], "fallback": None},
+    "/acca-plus/latex-ocr": {
+        "label": "Formula to LaTeX",
+        "primary": ["pix2tex"],
+        "fallback": None,
+    },
 }
 
 

@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - ACCA - TOOLS{% endblock %}
+
+{% block content %}
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>{{ title }}</h1>
+        <p>{{ description }}</p>
+    </div>
+
+    <div class="tool-notes">
+        {{ status_html|safe }}
+        <p>
+            <strong>Tips terbaik:</strong> Gunakan gambar dengan latar belakang putih/terang,
+            resolusi cukup, dan hanya satu formula per gambar untuk hasil akurasi tertinggi.
+        </p>
+    </div>
+
+    <div id="capability-status" class="capability-status" data-endpoint="{{ endpoint }}" style="display:none"></div>
+
+    <form id="tool-form" data-endpoint="{{ endpoint }}">
+        <div class="upload-zone" id="upload-zone">
+            <input type="file" id="file-input" name="files" accept="{{ accept }}">
+            <div class="upload-prompt" id="upload-prompt">
+                <i class="bi bi-calculator-fill"></i>
+                <p>Drag &amp; drop gambar rumus di sini</p>
+                <span>atau klik untuk pilih file</span>
+                <small>Diterima: {{ accept }}</small>
+            </div>
+        </div>
+        <div class="file-list" id="file-list"></div>
+
+        <!-- Image preview before submit -->
+        <div id="img-preview-wrap" style="display:none;margin:1rem 0;text-align:center">
+            <img id="img-preview" src="" alt="Preview gambar"
+                 style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid var(--border)">
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="submit-btn" {% if not has_pix2tex %}disabled title="pix2tex belum terinstal"{% endif %}>
+            <span class="btn-text"><i class="bi bi-magic"></i> Konversi ke LaTeX</span>
+            <span class="btn-loading" style="display:none">
+                <i class="bi bi-arrow-repeat spin"></i> Memproses… (pertama kali bisa lambat saat model dimuat)
+            </span>
+        </button>
+    </form>
+
+    <!-- Result area -->
+    <div id="result-area" class="result-area" style="display:none">
+
+        <!-- LaTeX code output -->
+        <div id="result-text" class="result-text-box" style="display:none">
+            <div class="result-text-header">
+                <span><i class="bi bi-code-slash"></i> Kode LaTeX</span>
+                <button class="btn btn-small" onclick="copyLatex()"><i class="bi bi-clipboard"></i> Salin</button>
+            </div>
+            <pre id="result-text-content" style="font-size:1.1em;white-space:pre-wrap;word-break:break-all"></pre>
+        </div>
+
+        <!-- Rendered math preview -->
+        <div id="math-preview-box" style="display:none;margin-top:1.25rem">
+            <div class="result-text-header" style="border-radius:8px 8px 0 0">
+                <span><i class="bi bi-eye"></i> Preview Render</span>
+            </div>
+            <div id="math-preview-content"
+                 style="padding:1.5rem;background:var(--surface);border:1px solid var(--border);
+                        border-top:none;border-radius:0 0 8px 8px;font-size:1.4em;text-align:center;
+                        overflow-x:auto;min-height:60px">
+            </div>
+        </div>
+
+        <div id="result-error" class="result-error" style="display:none">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <span id="error-message"></span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- MathJax for rendering LaTeX preview -->
+<script>
+    window.MathJax = {
+        tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+        svg: { fontCache: 'global' },
+        startup: { ready() { MathJax.startup.defaultReady(); } }
+    };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async id="MathJax-script"></script>
+
+<script>
+// ── Image preview before submit ────────────────────────────────────────────
+const fileInput  = document.getElementById('file-input');
+const previewImg = document.getElementById('img-preview');
+const previewWrap = document.getElementById('img-preview-wrap');
+
+fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    previewImg.src = url;
+    previewWrap.style.display = 'block';
+});
+
+// ── Form submit via fetch (mirrors main.js pattern) ────────────────────────
+const form       = document.getElementById('tool-form');
+const submitBtn  = document.getElementById('submit-btn');
+const btnText    = submitBtn.querySelector('.btn-text');
+const btnLoading = submitBtn.querySelector('.btn-loading');
+const resultArea = document.getElementById('result-area');
+const resultText = document.getElementById('result-text');
+const resultContent = document.getElementById('result-text-content');
+const resultError   = document.getElementById('result-error');
+const errorMsg      = document.getElementById('error-message');
+const mathBox       = document.getElementById('math-preview-box');
+const mathContent   = document.getElementById('math-preview-content');
+
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // Reset UI
+    resultArea.style.display = 'none';
+    resultText.style.display = 'none';
+    resultError.style.display = 'none';
+    mathBox.style.display = 'none';
+    resultContent.textContent = '';
+    mathContent.innerHTML = '';
+
+    btnText.style.display = 'none';
+    btnLoading.style.display = '';
+    submitBtn.disabled = true;
+
+    const fd = new FormData(form);
+
+    try {
+        const res  = await fetch(form.dataset.endpoint, { method: 'POST', body: fd });
+        const data = await res.json();
+
+        resultArea.style.display = '';
+
+        if (!res.ok || data.error) {
+            errorMsg.textContent = data.error || 'Terjadi kesalahan tak terduga.';
+            resultError.style.display = '';
+            return;
+        }
+
+        // Show LaTeX code
+        resultContent.textContent = data.latex;
+        resultText.style.display = '';
+
+        // Render with MathJax
+        mathContent.innerHTML = '\\[' + data.latex + '\\]';
+        mathBox.style.display = '';
+
+        if (window.MathJax && MathJax.typesetPromise) {
+            MathJax.typesetPromise([mathContent]).catch(console.error);
+        }
+
+    } catch (err) {
+        resultArea.style.display = '';
+        errorMsg.textContent = 'Gagal menghubungi server: ' + err.message;
+        resultError.style.display = '';
+    } finally {
+        btnText.style.display = '';
+        btnLoading.style.display = 'none';
+        submitBtn.disabled = false;
+    }
+});
+
+function copyLatex() {
+    const text = resultContent.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('[onclick="copyLatex()"]');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check-lg"></i> Disalin!';
+        setTimeout(() => btn.innerHTML = orig, 2000);
+    });
+}
+</script>
+{% endblock %}
