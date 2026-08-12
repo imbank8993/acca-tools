@@ -613,17 +613,29 @@ def _compress_to_target(data: bytes, target_bytes: int, force_render: bool = Fal
     if force_render and best_size > target_bytes:
         try:
             doc_render = fitz.open(stream=data, filetype="pdf")
-            lo_z, hi_z = 0.2, 1.5
-            for _ in range(8):
-                if lo_z > hi_z:
+            # We want the highest zoom that fits. 
+            # Zoom levels: 2.0 (High), 1.5 (Med), 1.0 (Low), 0.75 (Very Low).
+            # We binary search JPEG quality (20 - 80) for each zoom level.
+            for z in [2.0, 1.5, 1.0, 0.75]:
+                lo_q, hi_q = 20, 80
+                found_at_this_zoom = False
+                for _ in range(6):
+                    if lo_q > hi_q:
+                        break
+                    q = (lo_q + hi_q) // 2
+                    c = _render_pdf_at(doc_render, z, q)
+                    _update(c)
+                    if len(c) <= target_bytes:
+                        found_at_this_zoom = True
+                        lo_q = q + 1
+                    else:
+                        hi_q = q - 1
+                
+                # If we found a configuration at this high zoom that fits the target, 
+                # we don't need to drop to a lower, blurrier zoom level!
+                if found_at_this_zoom:
                     break
-                z = (lo_z + hi_z) / 2.0
-                c = _render_pdf_at(doc_render, z, 40)
-                _update(c)
-                if len(c) <= target_bytes:
-                    lo_z = z + 0.1
-                else:
-                    hi_z = z - 0.1
+                    
             doc_render.close()
         except Exception as e:
             log_error(e, "_compress_to_target phase 3")
