@@ -38,8 +38,21 @@
 
         <!-- Document options -->
         <div class="tool-options" style="margin-top:1rem">
+        
+            <div class="form-group option-group" style="background-color: var(--surface); padding: 1rem; border-radius: 8px; border: 1px solid var(--border);">
+                <label for="opt-engine" style="display:flex; align-items:center; gap:0.5rem">
+                    <i class="bi bi-cpu-fill" style="color:#8b5cf6"></i> Conversion Engine
+                </label>
+                <select id="opt-engine" name="engine">
+                    <option value="pix2tex">pix2tex (Local) — Best for cropped math formulas only</option>
+                    <option value="gemini">Gemini 1.5 Pro (Cloud) — Best for full pages, layouts, tables, and text</option>
+                </select>
+                <small style="color:var(--muted);margin-top:.3rem;display:block">
+                    Select <strong>Gemini</strong> if you uploaded a full page of a book. Select <strong>pix2tex</strong> if you only uploaded a tiny cropped image of a single formula.
+                </small>
+            </div>
 
-            <div class="form-group option-group">
+            <div class="form-group option-group" style="margin-top:1rem">
                 <label for="opt-doc_title">Document Title</label>
                 <input type="text" id="opt-doc_title" name="doc_title"
                        value="Math Module" placeholder="Document title">

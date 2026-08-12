@@ -24,6 +24,74 @@ HAS_PIX2TEX = importlib.util.find_spec("pix2tex") is not None
 _latex_ocr_model = None  # cached singleton; loaded on first POST
 
 
+def get_gemini_api_key():
+    key = os.environ.get("GEMINI_API_KEY")
+    if key: return key
+    try:
+        with open(".env", "r") as f:
+            for line in f:
+                if line.startswith("GEMINI_API_KEY="):
+                    return line.strip().split("=", 1)[1]
+    except Exception:
+        pass
+    return None
+
+
+def _gemini_image_to_latex(image_bytes: bytes, mime_type: str) -> str:
+    api_key = get_gemini_api_key()
+    if not api_key:
+        raise Exception("Gemini API key is not configured. Please set GEMINI_API_KEY in .env file.")
+        
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}"
+    
+    b64_data = base64.b64encode(image_bytes).decode('utf-8')
+    
+    prompt = (
+        "You are an expert LaTeX typesetter. Convert the provided image into clean, compilable LaTeX code. "
+        "Replicate the layout, tables, colored boxes, text formatting, and math formulas as accurately as possible. "
+        "Use necessary packages like xcolor, booktabs, amsmath, array, tikz, etc., if needed. "
+        "DO NOT output full document preamble (no \\documentclass or \\begin{document}), ONLY output the inner content (the tables, text, formulas, etc). "
+        "Output ONLY the LaTeX code. Do not wrap in ```latex or markdown tags."
+    )
+    
+    payload = {
+        "contents": [{
+            "parts": [
+                {"text": prompt},
+                {
+                    "inlineData": {
+                        "mimeType": mime_type,
+                        "data": b64_data
+                    }
+                }
+            ]
+        }],
+        "generationConfig": {
+            "temperature": 0.1
+        }
+    }
+    
+    response = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+    
+    if response.status_code != 200:
+        err_msg = "Unknown error"
+        try:
+            err_msg = response.json().get('error', {}).get('message', str(response.text))
+        except: pass
+        raise Exception(f"Gemini API Error: {err_msg}")
+        
+    data = response.json()
+    try:
+        latex_text = data['candidates'][0]['content']['parts'][0]['text']
+        if latex_text.startswith("```latex"): latex_text = latex_text.split("```latex", 1)[1]
+        if latex_text.startswith("```tex"): latex_text = latex_text.split("```tex", 1)[1]
+        if latex_text.startswith("```"): latex_text = latex_text.split("```", 1)[1]
+        if latex_text.endswith("```"): latex_text = latex_text.rsplit("```", 1)[0]
+        return latex_text.strip()
+    except Exception as e:
+        raise Exception("Failed to parse Gemini API response. Format might have changed.")
+
+
 def _get_model():
     """Return a cached LatexOCR instance, loading it on first call."""
     global _latex_ocr_model
@@ -188,17 +256,19 @@ def _build_tex(formulas: list[dict], title: str, author: str,
 
 @bp.route("/images-to-tex")
 def images_to_tex_page():
-    if HAS_PIX2TEX:
-        status_html = (
-            '<p><i class="bi bi-check-circle-fill" style="color:#16a34a"></i> '
-            '<strong>pix2tex ready.</strong></p>'
-        )
+    status_parts = []
+    
+    if get_gemini_api_key():
+        status_parts.append('<i class="bi bi-stars" style="color:#8b5cf6"></i> <strong>Gemini AI ready.</strong>')
     else:
-        status_html = (
-            '<p><i class="bi bi-exclamation-triangle-fill" style="color:#ffb703"></i> '
-            '<strong>pix2tex not installed.</strong> '
-            'Run on the server: <code>pip install pix2tex</code> then restart.</p>'
-        )
+        status_parts.append('<i class="bi bi-stars" style="color:#9ca3af"></i> <strong>Gemini AI not configured.</strong>')
+        
+    if HAS_PIX2TEX:
+        status_parts.append('<i class="bi bi-check-circle-fill" style="color:#16a34a"></i> <strong>pix2tex ready.</strong>')
+    else:
+        status_parts.append('<i class="bi bi-exclamation-triangle-fill" style="color:#ffb703"></i> <strong>pix2tex not installed.</strong>')
+
+    status_html = f"<p>{' &nbsp;|&nbsp; '.join(status_parts)}</p>"
 
     return render_template(
         "tools/images_to_tex.html",
@@ -213,7 +283,9 @@ def images_to_tex_page():
 
 @bp.route("/images-to-tex", methods=["POST"])
 def images_to_tex():
-    if not HAS_PIX2TEX:
+    engine = request.form.get("engine", "pix2tex").strip()
+    
+    if engine == "pix2tex" and not HAS_PIX2TEX:
         return jsonify(
             error="pix2tex is not installed. Run: pip install pix2tex on the server, then restart."
         ), 400
@@ -242,7 +314,13 @@ def images_to_tex():
 
     from PIL import Image  # noqa: PLC0415
 
-    model = _get_model()
+    engine = request.form.get("engine", "pix2tex").strip()
+    
+    if engine == "pix2tex":
+        model = _get_model()
+    else:
+        model = None
+
     formulas: list[dict] = []
     errors:   list[str]  = []
 
@@ -251,8 +329,16 @@ def images_to_tex():
             continue
         label = labels.get(i, f"Formula {i + 1}")
         try:
-            img   = Image.open(io.BytesIO(upload.read())).convert("RGB")
-            latex = model(img)
+            image_bytes = upload.read()
+            if engine == "gemini":
+                mime_type = upload.mimetype or "image/jpeg"
+                if not mime_type.startswith("image/"):
+                    mime_type = "image/jpeg"
+                latex = _gemini_image_to_latex(image_bytes, mime_type)
+            else:
+                img   = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+                latex = model(img)
+                
             if not latex or not latex.strip():
                 latex = r"\text{(not detected)}"
             formulas.append({"label": label, "latex": latex.strip()})
