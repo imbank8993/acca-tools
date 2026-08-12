@@ -522,12 +522,33 @@ def _compress_with_pikepdf(data: bytes) -> bytes:
         return data
 
 
-def _compress_to_target(data: bytes, target_bytes: int) -> tuple[bytes, int, bool]:
+def _render_pdf_at(doc, zoom: float, jpeg_quality: int) -> bytes:
+    """Renders all pages of a PDF to JPEG images and builds a new PDF."""
+    mat = fitz.Matrix(zoom, zoom)
+    new_doc = fitz.open()
+    try:
+        for page in doc:
+            pix = page.get_pixmap(matrix=mat, alpha=False, colorspace=fitz.csRGB)
+            img_bytes = pix.tobytes("jpeg", jpeg_quality)
+            
+            rect = page.rect
+            new_page = new_doc.new_page(width=rect.width, height=rect.height)
+            new_page.insert_image(rect, stream=img_bytes)
+            
+        out = io.BytesIO()
+        new_doc.save(out, garbage=4, deflate=True)
+        return out.getvalue()
+    finally:
+        new_doc.close()
+
+
+def _compress_to_target(data: bytes, target_bytes: int, force_render: bool = False) -> tuple[bytes, int, bool]:
     """
     Binary-search compression settings to reach target_bytes.
     Phase 0: pikepdf lossless compression (if installed).
     Phase 1: binary-search JPEG quality (5-85), full image resolution.
     Phase 2: if target still not met, binary-search max image dimension (200-1800px) at quality=30.
+    Phase 3: (Optional) if force_render=True, convert pages to images and binary search resolution.
     Returns (best_data, achieved_size, target_met).
     """
     if len(data) <= target_bytes:
@@ -588,6 +609,25 @@ def _compress_to_target(data: bytes, target_bytes: int) -> tuple[bytes, int, boo
         else:
             hi_d = d - 1   # Need smaller images
 
+    # ── Phase 3: Force render to image if target not met and force_render=True ──
+    if force_render and best_size > target_bytes:
+        try:
+            doc_render = fitz.open(stream=data, filetype="pdf")
+            lo_z, hi_z = 0.2, 1.5
+            for _ in range(8):
+                if lo_z > hi_z:
+                    break
+                z = (lo_z + hi_z) / 2.0
+                c = _render_pdf_at(doc_render, z, 40)
+                _update(c)
+                if len(c) <= target_bytes:
+                    lo_z = z + 0.1
+                else:
+                    hi_z = z - 0.1
+            doc_render.close()
+        except Exception as e:
+            log_error(e, "_compress_to_target phase 3")
+
     return best_data, best_size, best_size <= target_bytes
 
 
@@ -645,8 +685,10 @@ def compress_pdf_target():
 
     original_size = len(data)
 
+    force_render = request.form.get("force_render") == "1"
+
     try:
-        result_data, achieved_size, target_met = _compress_to_target(data, target_bytes)
+        result_data, achieved_size, target_met = _compress_to_target(data, target_bytes, force_render=force_render)
     except Exception as e:
         log_error(e, "compress_pdf_target.process")
         return jsonify(error=f"Compression failed: {e}"), 500

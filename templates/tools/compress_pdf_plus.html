@@ -65,6 +65,17 @@
                     Enter the size you want the output PDF to be approximately.
                 </small>
             </div>
+            
+            <div class="form-group option-group" style="margin-top:1rem">
+                <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+                    <input type="checkbox" id="force-render-input" name="force_render" value="1">
+                    <strong>Force Compress (Render to Image)</strong>
+                </label>
+                <small style="color:var(--muted);display:block;margin-top:.3rem;margin-left:1.5rem">
+                    Check this to force the PDF to reach the exact target size by rendering all pages as images. 
+                    <span style="color:#e74c3c">Warning:</span> Text will become unselectable.
+                </small>
+            </div>
         </div>
 
         <button type="submit" class="btn btn-primary" id="submit-btn">
@@ -218,6 +229,11 @@ form.addEventListener('submit', async (e) => {
         fd.append('files', file);
         fd.append('target_size', targetVal);
         fd.append('target_unit', targetUnit);
+        
+        const forceRender = document.getElementById('force-render-input').checked;
+        if (forceRender) {
+            fd.append('force_render', '1');
+        }
 
         const res = await fetch(form.dataset.endpoint, { method: 'POST', body: fd });
 
