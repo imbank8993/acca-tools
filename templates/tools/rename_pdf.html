@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - ACCA - TOOLS{% endblock %}
+{% block top_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>{{ title }}</h1>
+        <p>{{ description|safe }}</p>
+    </div>
+
+    <div class="tool-notes">
+        <p>
+            <strong>Cara kerja:</strong> Teks dari setiap PDF dibaca otomatis.
+            NISN (10 digit) dan Nama Siswa diekstrak menggunakan pola cerdas yang mendukung
+            berbagai format dokumen sekolah Indonesia (rapor, ijazah, SKL, kartu ujian, dll).
+        </p>
+        <p>
+            <strong>Format nama file hasil:</strong>
+            <code>namafile_NISN_NamaSiswa.pdf</code><br>
+            File yang tidak mengandung NISN/Nama tetap dimasukkan ke ZIP dengan nama aslinya.
+            Lihat <code>_rename_log.txt</code> di dalam ZIP untuk detail per-file.
+        </p>
+        <p style="font-size:.9em;color:var(--muted)">
+            <i class="bi bi-info-circle"></i>
+            Hanya bekerja pada PDF berbasis teks (bukan PDF hasil scan/foto). Untuk PDF scan,
+            pastikan PDF sudah melalui proses OCR terlebih dahulu.
+        </p>
+    </div>
+
+    <div id="capability-status" class="capability-status" data-endpoint="{{ endpoint }}" style="display:none"></div>
+
+    <form id="tool-form" data-endpoint="{{ endpoint }}">
+
+        <!-- File Upload Zone -->
+        <div class="upload-zone" id="upload-zone">
+            <input type="file" id="file-input" name="files" accept=".pdf" multiple>
+            <div class="upload-prompt" id="upload-prompt">
+                <i class="bi bi-tag-fill"></i>
+                <p>Drag &amp; drop file PDF di sini</p>
+                <span>atau klik untuk pilih beberapa file sekaligus</span>
+                <small>Diterima: .pdf &mdash; bisa pilih banyak file sekaligus</small>
+            </div>
+        </div>
+        <div class="file-list" id="file-list"></div>
+
+        <!-- Selected files preview table -->
+        <div id="files-preview" style="display:none;margin:1rem 0">
+            <div class="result-text-header" style="border-radius:8px 8px 0 0;padding:.6rem 1rem">
+                <span><i class="bi bi-list-ul"></i> File yang dipilih (<span id="file-count">0</span>)</span>
+                <button type="button" class="btn btn-small" onclick="clearFiles()">
+                    <i class="bi bi-x-circle"></i> Hapus semua
+                </button>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-top:none;
+                        border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;padding:.5rem 1rem">
+                <ul id="files-list-ul" style="margin:0;padding:0;list-style:none;font-size:.9em"></ul>
+            </div>
+        </div>
+
+        <!-- Advanced Options (collapsible) -->
+        <details style="margin:1rem 0">
+            <summary style="cursor:pointer;font-weight:600;color:var(--muted);user-select:none">
+                <i class="bi bi-sliders"></i> Opsi Lanjutan (Pola Regex Custom)
+            </summary>
+            <div style="margin-top:.75rem;padding:1rem;background:var(--surface);
+                        border:1px solid var(--border);border-radius:8px">
+                <p style="font-size:.88em;color:var(--muted);margin-bottom:.75rem">
+                    Kosongkan jika ingin menggunakan deteksi otomatis. Isi hanya jika format
+                    dokumen Anda tidak terdeteksi. Gunakan <strong>grup tangkap</strong>
+                    <code>( )</code> untuk menangkap nilai yang diinginkan.
+                </p>
+                <div class="form-group">
+                    <label for="nisn-pattern">
+                        Pola NISN (regex)
+                        <span style="font-size:.8em;color:var(--muted);font-weight:400">
+                            &mdash; contoh: <code>No\.?\s*NISN\s*[:\-]\s*(\d{10})</code>
+                        </span>
+                    </label>
+                    <input type="text" id="nisn-pattern" name="nisn_pattern"
+                           placeholder="Biarkan kosong untuk deteksi otomatis"
+                           style="font-family:monospace">
+                </div>
+                <div class="form-group">
+                    <label for="nama-pattern">
+                        Pola Nama Siswa (regex)
+                        <span style="font-size:.8em;color:var(--muted);font-weight:400">
+                            &mdash; contoh: <code>Nama\s+Peserta\s*:\s*([^\n]{3,60})</code>
+                        </span>
+                    </label>
+                    <input type="text" id="nama-pattern" name="nama_pattern"
+                           placeholder="Biarkan kosong untuk deteksi otomatis"
+                           style="font-family:monospace">
+                </div>
+            </div>
+        </details>
+
+        <button type="submit" class="btn btn-primary" id="submit-btn">
+            <span class="btn-text"><i class="bi bi-tag-fill"></i> Proses &amp; Rename</span>
+            <span class="btn-loading" style="display:none">
+                <i class="bi bi-arrow-repeat spin"></i> Memproses PDF&hellip;
+            </span>
+        </button>
+    </form>
+
+    <!-- Result Area -->
+    <div id="result-area" class="result-area" style="display:none">
+        <div id="result-success" class="result-success" style="display:none">
+            <i class="bi bi-check-circle-fill"></i>
+            <span id="result-message">Selesai!</span>
+            <a id="download-btn" class="btn btn-success" download>
+                <i class="bi bi-download"></i> Download ZIP
+            </a>
+        </div>
+        <div id="result-error" class="result-error" style="display:none">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <span id="error-message"></span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const fileInput    = document.getElementById('file-input');
+const uploadPrompt = document.getElementById('upload-prompt');
+const filesPreview = document.getElementById('files-preview');
+const filesListUl  = document.getElementById('files-list-ul');
+const fileCountEl  = document.getElementById('file-count');
+const submitBtn    = document.getElementById('submit-btn');
+const btnText      = submitBtn.querySelector('.btn-text');
+const btnLoading   = submitBtn.querySelector('.btn-loading');
+const resultArea   = document.getElementById('result-area');
+const resultSuccess = document.getElementById('result-success');
+const resultMessage = document.getElementById('result-message');
+const downloadBtn  = document.getElementById('download-btn');
+const resultError  = document.getElementById('result-error');
+const errorMsg     = document.getElementById('error-message');
+
+// ── File preview ─────────────────────────────────────────────────────────────
+function updateFilesPreview() {
+    const files = fileInput.files;
+    if (!files || files.length === 0) {
+        filesPreview.style.display = 'none';
+        uploadPrompt.querySelector('p').textContent = 'Drag & drop file PDF di sini';
+        uploadPrompt.querySelector('span').textContent = 'atau klik untuk pilih beberapa file sekaligus';
+        return;
+    }
+    filesPreview.style.display = '';
+    fileCountEl.textContent = files.length;
+    filesListUl.innerHTML = '';
+    Array.from(files).forEach(f => {
+        const li = document.createElement('li');
+        li.style.cssText = 'padding:.25rem 0;border-bottom:1px solid var(--border);display:flex;gap:.5rem;align-items:center';
+        li.innerHTML = `<i class="bi bi-file-pdf-fill" style="color:#e74c3c"></i>
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(f.name)}</span>
+            <span style="color:var(--muted);font-size:.82em;flex-shrink:0">${formatSize(f.size)}</span>`;
+        filesListUl.appendChild(li);
+    });
+    uploadPrompt.querySelector('p').textContent = `${files.length} file dipilih`;
+    uploadPrompt.querySelector('span').textContent = 'Klik untuk ganti pilihan';
+}
+
+function clearFiles() {
+    fileInput.value = '';
+    filesPreview.style.display = 'none';
+    uploadPrompt.querySelector('p').textContent = 'Drag & drop file PDF di sini';
+    uploadPrompt.querySelector('span').textContent = 'atau klik untuk pilih beberapa file sekaligus';
+}
+
+fileInput.addEventListener('change', updateFilesPreview);
+
+function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+// ── Form submit ───────────────────────────────────────────────────────────────
+document.getElementById('tool-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const files = fileInput.files;
+    if (!files || files.length === 0) {
+        showError('Pilih minimal satu file PDF.');
+        return;
+    }
+
+    // Reset result
+    resultArea.style.display = 'none';
+    resultSuccess.style.display = 'none';
+    resultError.style.display = 'none';
+    btnText.style.display = 'none';
+    btnLoading.style.display = '';
+    submitBtn.disabled = true;
+
+    const fd = new FormData(e.target);
+
+    try {
+        const res = await fetch(e.target.dataset.endpoint, { method: 'POST', body: fd });
+
+        if (!res.ok) {
+            let errText = `Server error ${res.status}`;
+            try { const d = await res.json(); errText = d.error || errText; } catch {}
+            showError(errText);
+            return;
+        }
+
+        const ct = res.headers.get('Content-Type') || '';
+        if (ct.includes('application/json')) {
+            const d = await res.json();
+            showError(d.error || 'Terjadi kesalahan tak terduga.');
+            return;
+        }
+
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+
+        const cd = res.headers.get('Content-Disposition') || '';
+        const fnMatch = cd.match(/filename[^;=\n]*=([^;\n]*)/i);
+        const filename = fnMatch ? fnMatch[1].replace(/['"]/g, '').trim() : 'renamed_pdfs.zip';
+
+        downloadBtn.href = url;
+        downloadBtn.download = filename;
+        resultMessage.textContent = `${files.length} file diproses. Download ZIP dan cek _rename_log.txt di dalamnya.`;
+
+        resultArea.style.display = '';
+        resultSuccess.style.display = '';
+        downloadBtn.click();
+
+    } catch (err) {
+        showError('Gagal menghubungi server: ' + err.message);
+    } finally {
+        btnText.style.display = '';
+        btnLoading.style.display = 'none';
+        submitBtn.disabled = false;
+    }
+});
+
+function showError(msg) {
+    resultArea.style.display = '';
+    resultError.style.display = '';
+    errorMsg.textContent = msg;
+}
+</script>
+{% endblock %}

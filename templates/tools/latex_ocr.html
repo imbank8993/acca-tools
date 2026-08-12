@@ -18,7 +18,7 @@
 
     <div id="capability-status" class="capability-status" data-endpoint="{{ endpoint }}" style="display:none"></div>
 
-    <form id="tool-form" data-endpoint="{{ endpoint }}">
+    <form id="latex-ocr-form" data-endpoint="{{ endpoint }}">
         <div class="upload-zone" id="upload-zone">
             <input type="file" id="file-input" name="files" accept="{{ accept }}">
             <div class="upload-prompt" id="upload-prompt">
@@ -88,21 +88,22 @@
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async id="MathJax-script"></script>
 
 <script>
-// ── Image preview before submit ────────────────────────────────────────────
-const fileInput  = document.getElementById('file-input');
-const previewImg = document.getElementById('img-preview');
+// ── Image preview: hook into main.js renderFileList ──────────────────────
+const previewImg  = document.getElementById('img-preview');
 const previewWrap = document.getElementById('img-preview-wrap');
+const _origRFL    = window.renderFileList || function(){};
+window.renderFileList = function() {
+    _origRFL();
+    if (selectedFiles && selectedFiles[0]) {
+        previewImg.src = URL.createObjectURL(selectedFiles[0]);
+        previewWrap.style.display = 'block';
+    } else {
+        previewWrap.style.display = 'none';
+    }
+};
 
-fileInput.addEventListener('change', () => {
-    const file = fileInput.files[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    previewImg.src = url;
-    previewWrap.style.display = 'block';
-});
-
-// ── Form submit via fetch (mirrors main.js pattern) ────────────────────────
-const form       = document.getElementById('tool-form');
+// ── Form submit ────────────────────────────────────────────────────────────
+const form       = document.getElementById('latex-ocr-form');
 const submitBtn  = document.getElementById('submit-btn');
 const btnText    = submitBtn.querySelector('.btn-text');
 const btnLoading = submitBtn.querySelector('.btn-loading');
@@ -129,7 +130,19 @@ form.addEventListener('submit', async (e) => {
     btnLoading.style.display = '';
     submitBtn.disabled = true;
 
-    const fd = new FormData(form);
+    // main.js clears the file input and tracks files in selectedFiles[]
+    if (!selectedFiles || selectedFiles.length === 0) {
+        resultArea.style.display = '';
+        errorMsg.textContent = 'Harap upload gambar terlebih dahulu.';
+        resultError.style.display = '';
+        btnText.style.display = '';
+        btnLoading.style.display = 'none';
+        submitBtn.disabled = false;
+        return;
+    }
+
+    const fd = new FormData();
+    fd.append('files', selectedFiles[0]);
 
     try {
         const res  = await fetch(form.dataset.endpoint, { method: 'POST', body: fd });

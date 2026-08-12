@@ -15,7 +15,7 @@
 
     <div id="capability-status" class="capability-status" data-endpoint="{{ endpoint }}" style="display:none"></div>
 
-    <form id="tool-form" data-endpoint="{{ endpoint }}" enctype="multipart/form-data">
+    <form id="itex-form" data-endpoint="{{ endpoint }}" enctype="multipart/form-data">
 
         <!-- Upload zone -->
         <div class="upload-zone" id="upload-zone">
@@ -165,18 +165,27 @@
 
 <script>
 // ── File list & label editor ───────────────────────────────────────────────
-const fileInput  = document.getElementById('file-input');
+// NOTE: main.js owns `selectedFiles` (global array) and calls renderFileList()
+// after every file add/remove. We override renderFileList here to also
+// rebuild the per-image label inputs.
 const labelList  = document.getElementById('img-label-list');
 const labelItems = document.getElementById('img-label-items');
-let selectedFiles = [];
 
-fileInput.addEventListener('change', () => {
-    selectedFiles = Array.from(fileInput.files);
-    renderLabelList();
-});
+// Keep reference to main.js's original renderFileList
+const _origRenderFileList = window.renderFileList || function(){};
 
-function renderLabelList() {
-    if (!selectedFiles.length) { labelList.style.display = 'none'; return; }
+window.renderFileList = function() {
+    // Run original logic (shows file chips in #file-list)
+    _origRenderFileList();
+    // Then rebuild label editor
+    rebuildLabelList();
+};
+
+function rebuildLabelList() {
+    if (!selectedFiles || !selectedFiles.length) {
+        labelList.style.display = 'none';
+        return;
+    }
     labelList.style.display = '';
     labelItems.innerHTML = '';
     selectedFiles.forEach((f, i) => {
@@ -215,7 +224,7 @@ document.getElementById('opt-doc_class').addEventListener('change', function() {
 });
 
 // ── Form submit ────────────────────────────────────────────────────────────
-const form        = document.getElementById('tool-form');
+const form        = document.getElementById('itex-form');
 const submitBtn   = document.getElementById('submit-btn');
 const btnText     = submitBtn.querySelector('.btn-text');
 const btnLoading  = submitBtn.querySelector('.btn-loading');
@@ -249,9 +258,29 @@ form.addEventListener('submit', async (e) => {
     btnLoading.style.display = '';
     submitBtn.disabled = true;
 
-    const fd = new FormData(form);
+    // Build FormData manually: main.js clears the file input and
+    // tracks files in its own `selectedFiles` global array.
+    if (!selectedFiles || selectedFiles.length === 0) {
+        errMsg.textContent = 'Harap upload minimal satu gambar.';
+        resultErr.style.display = '';
+        resultArea.style.display = '';
+        btnText.style.display = '';
+        btnLoading.style.display = 'none';
+        submitBtn.disabled = false;
+        return;
+    }
 
-    // Append label inputs from dynamic list
+    const fd = new FormData();
+
+    // Append files from main.js's tracked array
+    selectedFiles.forEach(f => fd.append('files', f));
+
+    // Append all named form fields (options, labels)
+    new FormData(form).forEach((val, key) => {
+        if (key !== 'files') fd.append(key, val);
+    });
+
+    // Append dynamic label inputs (they are inside the form but created dynamically)
     document.querySelectorAll('#img-label-items input[type=text]').forEach(inp => {
         fd.set(inp.name, inp.value);
     });

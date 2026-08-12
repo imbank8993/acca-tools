@@ -281,6 +281,11 @@ ROUTE_REQUIREMENTS = {
         "primary": ["pix2tex"],
         "fallback": None,
     },
+    "/acca-plus/images-to-tex": {
+        "label": "Gambar ke Dokumen TeX",
+        "primary": ["pix2tex"],
+        "fallback": None,
+    },
 }
 
 
