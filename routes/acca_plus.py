@@ -445,12 +445,28 @@ def _compress_pdf_at(data: bytes, jpeg_quality: int, max_dim: int) -> bytes:
                     continue
                 seen.add(xref)
                 try:
-                    base = doc.extract_image(xref)
-                    if not base:
-                        continue
-                    with PILImage.open(io.BytesIO(base["image"])) as pil:
-                        if pil.mode not in ("RGB", "L"):
-                            pil = pil.convert("RGB")
+                    pix = fitz.Pixmap(doc, xref)
+                    # Convert CMYK or complex color spaces to RGB to avoid issues
+                    if pix.colorspace and pix.colorspace.n >= 4:
+                        new_pix = fitz.Pixmap(fitz.csRGB, pix)
+                        pix = new_pix
+
+                    img_bytes = pix.tobytes("png")
+                    
+                    with PILImage.open(io.BytesIO(img_bytes)) as pil:
+                        is_transparent = pix.alpha or pil.mode in ("RGBA", "LA", "P")
+
+                        if is_transparent:
+                            if pil.mode not in ("RGBA", "LA"):
+                                pil = pil.convert("RGBA")
+                            save_format = "PNG"
+                            save_kwargs = {"optimize": True}
+                        else:
+                            if pil.mode not in ("RGB", "L"):
+                                pil = pil.convert("RGB")
+                            save_format = "JPEG"
+                            save_kwargs = {"quality": jpeg_quality, "optimize": True}
+
                         w, h = pil.size
                         if max_dim > 0 and max(w, h) > max_dim:
                             scale = max_dim / max(w, h)
@@ -458,9 +474,12 @@ def _compress_pdf_at(data: bytes, jpeg_quality: int, max_dim: int) -> bytes:
                                 (max(1, int(w * scale)), max(1, int(h * scale))),
                                 PILImage.LANCZOS,
                             )
+
                         buf = io.BytesIO()
-                        pil.save(buf, format="JPEG", quality=jpeg_quality, optimize=True)
+                        pil.save(buf, format=save_format, **save_kwargs)
+
                     page.replace_image(xref, stream=buf.getvalue())
+                    pix = None
                 except Exception as e:
                     log_error(e, f"_compress_pdf_at xref={xref}")
                     continue
