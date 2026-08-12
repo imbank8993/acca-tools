@@ -296,16 +296,13 @@ _RE_NAMA = re.compile(
 
 def _sanitize(text: str) -> str:
     """Remove characters that are invalid in filenames and trim whitespace."""
-    # Replace filesystem-unsafe characters with underscore
     text = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", text)
-    # Collapse multiple spaces/underscores
     text = re.sub(r"[\s_]+", "_", text.strip())
-    return text[:80]  # cap length to stay safe on all OSes
+    return text[:80]
 
 
 def _extract_nisn_and_nama(text: str) -> tuple[str, str]:
     """Return (nisn, nama) extracted from PDF text, or empty strings."""
-    # NISN ──────────────────────────────────────────────────────────────────
     nisn = ""
     m = _RE_NISN_LABELED.search(text)
     if m:
@@ -315,7 +312,6 @@ def _extract_nisn_and_nama(text: str) -> tuple[str, str]:
         if m:
             nisn = m.group(1)
 
-    # Nama ──────────────────────────────────────────────────────────────────
     nama = ""
     m = _RE_NAMA.search(text)
     if m:
@@ -347,7 +343,6 @@ def rename_pdf():
     if not files or not files[0].filename:
         return jsonify(error=NO_FILE_MULTIPLE), 400
 
-    # Optional override patterns from the form
     custom_nisn_pattern = (request.form.get("nisn_pattern") or "").strip()
     custom_nama_pattern = (request.form.get("nama_pattern") or "").strip()
 
@@ -365,30 +360,25 @@ def rename_pdf():
         for upload in files:
             original_filename = upload.filename or "unknown.pdf"
             stem = os.path.splitext(original_filename)[0]
+            data = b""
 
             try:
                 data = upload.read()
                 doc = fitz.open(stream=data, filetype="pdf")
 
-                # Extract text from first 3 pages for speed; fall back to all pages
                 pages_to_scan = min(3, doc.page_count)
                 text = "\n".join(doc[i].get_text() for i in range(pages_to_scan))
                 if not text.strip() and doc.page_count > 3:
                     text = "\n".join(page.get_text() for page in doc)
-
                 doc.close()
 
-                # NISN extraction
                 nisn = ""
                 if re_nisn_custom:
                     m = re_nisn_custom.search(text)
                     nisn = m.group(1) if (m and m.lastindex) else (m.group(0) if m else "")
                 else:
                     nisn, _ = _extract_nisn_and_nama(text)
-                    # re-extract nama separately so custom patterns don't interfere
-                    _, nama_from_default = _extract_nisn_and_nama(text)
 
-                # Nama extraction
                 nama = ""
                 if re_nama_custom:
                     m = re_nama_custom.search(text)
@@ -397,7 +387,6 @@ def rename_pdf():
                 else:
                     _, nama = _extract_nisn_and_nama(text)
 
-                # Build new filename
                 parts = [stem]
                 if nisn:
                     parts.append(nisn)
@@ -413,17 +402,16 @@ def rename_pdf():
 
             except Exception as e:
                 log_error(e, f"rename_pdf.{original_filename}")
-                new_name = original_filename  # keep original name on error
-                data = data if data else upload.read()
+                new_name = original_filename
+                if not data:
+                    data = upload.read()
                 status = f"ERROR: {e}"
 
             zf.writestr(new_name, data)
             log_lines.append(f"{original_filename}  →  {new_name}  [{status}]")
             processed += 1
 
-        # Include a processing log in the ZIP
-        log_text = "\n".join(log_lines)
-        zf.writestr("_rename_log.txt", log_text.encode("utf-8"))
+        zf.writestr("_rename_log.txt", "\n".join(log_lines).encode("utf-8"))
 
     if processed == 0:
         return jsonify(error="No PDF files could be processed."), 400
@@ -435,3 +423,187 @@ def rename_pdf():
         as_attachment=True,
         download_name="renamed_pdfs.zip",
     )
+
+
+# ---------------------------------------------------------------------------
+# Compress PDF to Target Size
+# ---------------------------------------------------------------------------
+
+def _compress_pdf_at(data: bytes, jpeg_quality: int, max_dim: int) -> bytes:
+    """Re-compress all raster images in PDF at given JPEG quality and max dimension.
+    max_dim=0 means no downscaling.
+    """
+    from PIL import Image as PILImage
+
+    doc = fitz.open(stream=data, filetype="pdf")
+    seen: set[int] = set()
+    try:
+        for page in doc:
+            for img_info in page.get_images(full=True):
+                xref = img_info[0]
+                if xref in seen:
+                    continue
+                seen.add(xref)
+                try:
+                    base = doc.extract_image(xref)
+                    if not base:
+                        continue
+                    with PILImage.open(io.BytesIO(base["image"])) as pil:
+                        if pil.mode not in ("RGB", "L"):
+                            pil = pil.convert("RGB")
+                        w, h = pil.size
+                        if max_dim > 0 and max(w, h) > max_dim:
+                            scale = max_dim / max(w, h)
+                            pil = pil.resize(
+                                (max(1, int(w * scale)), max(1, int(h * scale))),
+                                PILImage.LANCZOS,
+                            )
+                        buf = io.BytesIO()
+                        pil.save(buf, format="JPEG", quality=jpeg_quality, optimize=True)
+                    page.replace_image(xref, stream=buf.getvalue())
+                except Exception as e:
+                    log_error(e, f"_compress_pdf_at xref={xref}")
+                    continue
+        out = io.BytesIO()
+        doc.save(out, garbage=4, deflate=True, clean=True)
+        out.seek(0)
+        return out.read()
+    finally:
+        doc.close()
+
+
+def _compress_to_target(data: bytes, target_bytes: int) -> tuple[bytes, int, bool]:
+    """
+    Binary-search compression settings to reach target_bytes.
+    Phase 1: binary-search JPEG quality (5-85), full image resolution.
+    Phase 2: if target still not met, binary-search max image dimension (200-1800px) at quality=30.
+    Returns (best_data, achieved_size, target_met).
+    """
+    if len(data) <= target_bytes:
+        return data, len(data), True
+
+    best_data = data
+    best_size = len(data)
+
+    def _update(compressed: bytes) -> None:
+        nonlocal best_data, best_size
+        size = len(compressed)
+        # Prefer the largest result that still fits the target;
+        # otherwise track the smallest overall result.
+        if size <= target_bytes:
+            if best_size > target_bytes or size > best_size:
+                best_data, best_size = compressed, size
+        else:
+            if best_size > target_bytes and size < best_size:
+                best_data, best_size = compressed, size
+
+    # ── Phase 1: binary-search on JPEG quality (full resolution) ─────────────
+    lo_q, hi_q = 5, 85
+    for _ in range(12):
+        if lo_q > hi_q:
+            break
+        q = (lo_q + hi_q) // 2
+        c = _compress_pdf_at(data, q, 0)
+        _update(c)
+        if len(c) <= target_bytes:
+            lo_q = q + 1   # Can afford higher quality
+        else:
+            hi_q = q - 1   # Need more compression
+
+    if best_size <= target_bytes:
+        return best_data, best_size, True
+
+    # ── Phase 2: binary-search on max image dimension at quality=30 ───────────
+    lo_d, hi_d = 200, 1800
+    for _ in range(8):
+        if lo_d > hi_d:
+            break
+        d = (lo_d + hi_d) // 2
+        c = _compress_pdf_at(data, 30, d)
+        _update(c)
+        if len(c) <= target_bytes:
+            lo_d = d + 1   # Can afford larger images
+        else:
+            hi_d = d - 1   # Need smaller images
+
+    return best_data, best_size, best_size <= target_bytes
+
+
+@bp.route("/compress-pdf")
+def compress_pdf_page():
+    return render_template(
+        "tools/compress_pdf_plus.html",
+        title="Compress PDF to Target Size",
+        description=(
+            "Upload a PDF and set your desired output file size. "
+            "The tool automatically finds the best compression settings "
+            "to get as close as possible to your target."
+        ),
+        endpoint="/acca-plus/compress-pdf",
+    )
+
+
+@bp.route("/compress-pdf", methods=["POST"])
+def compress_pdf_target():
+    if fitz is None:
+        return jsonify(error="PyMuPDF (fitz) is not installed on the server."), 500
+
+    files = request.files.getlist("files")
+    if not files or not files[0].filename:
+        return jsonify(error="Please upload a PDF file."), 400
+
+    # Parse target size from form
+    try:
+        target_value = float(request.form.get("target_size", "0") or "0")
+        target_unit = (request.form.get("target_unit", "KB") or "KB").upper()
+        target_bytes = int(target_value * (1024 * 1024 if target_unit == "MB" else 1024))
+    except (ValueError, TypeError):
+        return jsonify(error="Invalid target size value."), 400
+
+    if target_bytes <= 0:
+        return jsonify(error="Target size must be greater than 0."), 400
+
+    upload = files[0]
+    stem = os.path.splitext(upload.filename or "document.pdf")[0]
+
+    try:
+        data = upload.read()
+    except Exception as e:
+        log_error(e, "compress_pdf_target.read")
+        return jsonify(error="Failed to read uploaded file."), 400
+
+    if not data:
+        return jsonify(error="Uploaded file is empty."), 400
+
+    try:
+        chk = fitz.open(stream=data, filetype="pdf")
+        chk.close()
+    except Exception:
+        return jsonify(error="Could not open PDF. File may be corrupted or encrypted."), 400
+
+    original_size = len(data)
+
+    try:
+        result_data, achieved_size, target_met = _compress_to_target(data, target_bytes)
+    except Exception as e:
+        log_error(e, "compress_pdf_target.process")
+        return jsonify(error=f"Compression failed: {e}"), 500
+
+    out_buf = io.BytesIO(result_data)
+    out_buf.seek(0)
+
+    resp = send_file(
+        out_buf,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"{stem}_compressed.pdf",
+    )
+    # Expose size metadata via response headers for the JS result display
+    resp.headers["X-Original-Size"] = str(original_size)
+    resp.headers["X-Achieved-Size"] = str(achieved_size)
+    resp.headers["X-Target-Size"] = str(target_bytes)
+    resp.headers["X-Target-Met"] = "1" if target_met else "0"
+    resp.headers["Access-Control-Expose-Headers"] = (
+        "X-Original-Size, X-Achieved-Size, X-Target-Size, X-Target-Met"
+    )
+    return resp
