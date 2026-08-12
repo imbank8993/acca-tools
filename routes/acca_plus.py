@@ -432,41 +432,57 @@ def rename_pdf():
 def _compress_pdf_at(data: bytes, jpeg_quality: int, max_dim: int) -> bytes:
     """Re-compress all raster images in PDF at given JPEG quality and max dimension.
     max_dim=0 means no downscaling.
+    Safely skips images with transparency or SMasks to prevent breaking layouts.
     """
     from PIL import Image as PILImage
 
     doc = fitz.open(stream=data, filetype="pdf")
+    
+    # 1. Collect all SMask xrefs so we don't accidentally compress the masks themselves
+    smask_xrefs = set()
+    for page in doc:
+        for img_info in page.get_images(full=True):
+            if img_info[1] > 0:
+                smask_xrefs.add(img_info[1])
+
     seen: set[int] = set()
     try:
         for page in doc:
             for img_info in page.get_images(full=True):
                 xref = img_info[0]
+                smask_ref = img_info[1]
+                
                 if xref in seen:
                     continue
                 seen.add(xref)
+                
+                # SKIP transparent images & masks entirely to prevent corruption
+                if smask_ref > 0 or xref in smask_xrefs:
+                    continue
+
                 try:
                     pix = fitz.Pixmap(doc, xref)
-                    # Convert CMYK or complex color spaces to RGB to avoid issues
+                    # If the image natively has an alpha channel, skip it too
+                    if pix.alpha:
+                        pix = None
+                        continue
+                        
+                    # Convert CMYK/complex colorspaces to RGB
                     if pix.colorspace and pix.colorspace.n >= 4:
                         new_pix = fitz.Pixmap(fitz.csRGB, pix)
                         pix = new_pix
 
                     img_bytes = pix.tobytes("png")
+                    pix = None
                     
                     with PILImage.open(io.BytesIO(img_bytes)) as pil:
-                        is_transparent = pix.alpha or pil.mode in ("RGBA", "LA", "P")
-
-                        if is_transparent:
-                            if pil.mode not in ("RGBA", "LA"):
-                                pil = pil.convert("RGBA")
-                            save_format = "PNG"
-                            save_kwargs = {"optimize": True}
-                        else:
-                            if pil.mode not in ("RGB", "L"):
-                                pil = pil.convert("RGB")
-                            save_format = "JPEG"
-                            save_kwargs = {"quality": jpeg_quality, "optimize": True}
-
+                        # Double check for transparency in PIL
+                        if pil.mode in ("RGBA", "LA", "P") and ("transparency" in pil.info or pil.mode != "P"):
+                            continue
+                            
+                        if pil.mode not in ("RGB", "L"):
+                            pil = pil.convert("RGB")
+                            
                         w, h = pil.size
                         if max_dim > 0 and max(w, h) > max_dim:
                             scale = max_dim / max(w, h)
@@ -476,10 +492,9 @@ def _compress_pdf_at(data: bytes, jpeg_quality: int, max_dim: int) -> bytes:
                             )
 
                         buf = io.BytesIO()
-                        pil.save(buf, format=save_format, **save_kwargs)
+                        pil.save(buf, format="JPEG", quality=jpeg_quality, optimize=True)
 
                     page.replace_image(xref, stream=buf.getvalue())
-                    pix = None
                 except Exception as e:
                     log_error(e, f"_compress_pdf_at xref={xref}")
                     continue
