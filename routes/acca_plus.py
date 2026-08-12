@@ -472,9 +472,26 @@ def _compress_pdf_at(data: bytes, jpeg_quality: int, max_dim: int) -> bytes:
         doc.close()
 
 
+def _compress_with_pikepdf(data: bytes) -> bytes:
+    """Lossless compression using pikepdf object stream compression."""
+    if importlib.util.find_spec("pikepdf") is None:
+        return data
+
+    try:
+        import pikepdf
+        with pikepdf.open(io.BytesIO(data)) as pdf:
+            out = io.BytesIO()
+            pdf.save(out, compress_streams=True, object_stream_mode=pikepdf.ObjectStreamMode.generate)
+            return out.getvalue()
+    except Exception as e:
+        log_error(e, "_compress_with_pikepdf")
+        return data
+
+
 def _compress_to_target(data: bytes, target_bytes: int) -> tuple[bytes, int, bool]:
     """
     Binary-search compression settings to reach target_bytes.
+    Phase 0: pikepdf lossless compression (if installed).
     Phase 1: binary-search JPEG quality (5-85), full image resolution.
     Phase 2: if target still not met, binary-search max image dimension (200-1800px) at quality=30.
     Returns (best_data, achieved_size, target_met).
@@ -496,6 +513,17 @@ def _compress_to_target(data: bytes, target_bytes: int) -> tuple[bytes, int, boo
         else:
             if best_size > target_bytes and size < best_size:
                 best_data, best_size = compressed, size
+
+    # ── Phase 0: pikepdf lossless compression ─────────────
+    data_pike = _compress_with_pikepdf(data)
+    _update(data_pike)
+    if best_size <= target_bytes:
+        return best_data, best_size, True
+
+    # Use data_pike as the base for further raster compression to stack savings
+    # if it actually reduced the size.
+    if len(data_pike) < len(data):
+        data = data_pike
 
     # ── Phase 1: binary-search on JPEG quality (full resolution) ─────────────
     lo_q, hi_q = 5, 85
