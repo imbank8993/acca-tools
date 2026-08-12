@@ -11,8 +11,8 @@
     <div class="tool-notes">
         {{ status_html|safe }}
         <p>
-            <strong>Tips terbaik:</strong> Gunakan gambar dengan latar belakang putih/terang,
-            resolusi cukup, dan hanya satu formula per gambar untuk hasil akurasi tertinggi.
+            <strong>Best results:</strong> Use images with a white/light background,
+            sufficient resolution, and only one formula per image.
         </p>
     </div>
 
@@ -23,9 +23,9 @@
             <input type="file" id="file-input" name="files" accept="{{ accept }}">
             <div class="upload-prompt" id="upload-prompt">
                 <i class="bi bi-calculator-fill"></i>
-                <p>Drag &amp; drop gambar rumus di sini</p>
-                <span>atau klik untuk pilih file</span>
-                <small>Diterima: {{ accept }}</small>
+                <p>Drag &amp; drop formula image here</p>
+                <span>or click to browse</span>
+                <small>Accepted: {{ accept }}</small>
             </div>
         </div>
         <div class="file-list" id="file-list"></div>
@@ -37,9 +37,9 @@
         </div>
 
         <button type="submit" class="btn btn-primary" id="submit-btn" {% if not has_pix2tex %}disabled title="pix2tex belum terinstal"{% endif %}>
-            <span class="btn-text"><i class="bi bi-magic"></i> Konversi ke LaTeX</span>
+            <span class="btn-text"><i class="bi bi-magic"></i> Convert to LaTeX</span>
             <span class="btn-loading" style="display:none">
-                <i class="bi bi-arrow-repeat spin"></i> Memproses… (pertama kali bisa lambat saat model dimuat)
+                <i class="bi bi-arrow-repeat spin"></i> Processing… (may be slow on first load)
             </span>
         </button>
     </form>
@@ -50,8 +50,8 @@
         <!-- LaTeX code output -->
         <div id="result-text" class="result-text-box" style="display:none">
             <div class="result-text-header">
-                <span><i class="bi bi-code-slash"></i> Kode LaTeX</span>
-                <button class="btn btn-small" onclick="copyLatex()"><i class="bi bi-clipboard"></i> Salin</button>
+                <span><i class="bi bi-code-slash"></i> LaTeX Code</span>
+                <button class="btn btn-small" onclick="copyLatex()"><i class="bi bi-clipboard"></i> Copy</button>
             </div>
             <pre id="result-text-content" style="font-size:1.1em;white-space:pre-wrap;word-break:break-all"></pre>
         </div>
@@ -59,7 +59,7 @@
         <!-- Rendered math preview -->
         <div id="math-preview-box" style="display:none;margin-top:1.25rem">
             <div class="result-text-header" style="border-radius:8px 8px 0 0">
-                <span><i class="bi bi-eye"></i> Preview Render</span>
+                <span><i class="bi bi-eye"></i> Render Preview</span>
             </div>
             <div id="math-preview-content"
                  style="padding:1.5rem;background:var(--surface);border:1px solid var(--border);
@@ -133,7 +133,7 @@ form.addEventListener('submit', async (e) => {
     // main.js clears the file input and tracks files in selectedFiles[]
     if (!selectedFiles || selectedFiles.length === 0) {
         resultArea.style.display = '';
-        errorMsg.textContent = 'Harap upload gambar terlebih dahulu.';
+        errorMsg.textContent = 'Please upload an image first.';
         resultError.style.display = '';
         btnText.style.display = '';
         btnLoading.style.display = 'none';
@@ -151,7 +151,7 @@ form.addEventListener('submit', async (e) => {
         resultArea.style.display = '';
 
         if (!res.ok || data.error) {
-            errorMsg.textContent = data.error || 'Terjadi kesalahan tak terduga.';
+            errorMsg.textContent = data.error || 'An unexpected error occurred.';
             resultError.style.display = '';
             return;
         }
@@ -170,7 +170,7 @@ form.addEventListener('submit', async (e) => {
 
     } catch (err) {
         resultArea.style.display = '';
-        errorMsg.textContent = 'Gagal menghubungi server: ' + err.message;
+        errorMsg.textContent = 'Failed to reach server: ' + err.message;
         resultError.style.display = '';
     } finally {
         btnText.style.display = '';
@@ -184,7 +184,7 @@ function copyLatex() {
     navigator.clipboard.writeText(text).then(() => {
         const btn = document.querySelector('[onclick="copyLatex()"]');
         const orig = btn.innerHTML;
-        btn.innerHTML = '<i class="bi bi-check-lg"></i> Disalin!';
+        btn.innerHTML = '<i class="bi bi-check-lg"></i> Copied!';
         setTimeout(() => btn.innerHTML = orig, 2000);
     });
 }

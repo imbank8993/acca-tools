@@ -11,20 +11,20 @@
 
     <div class="tool-notes">
         <p>
-            <strong>Cara kerja:</strong> Teks dari setiap PDF dibaca otomatis.
-            NISN (10 digit) dan Nama Siswa diekstrak menggunakan pola cerdas yang mendukung
-            berbagai format dokumen sekolah Indonesia (rapor, ijazah, SKL, kartu ujian, dll).
+            <strong>How it works:</strong> Text is extracted from each PDF automatically.
+            NISN (10-digit number) and student name are detected using smart patterns
+            supporting common Indonesian school document formats.
         </p>
         <p>
-            <strong>Format nama file hasil:</strong>
-            <code>namafile_NISN_NamaSiswa.pdf</code><br>
-            File yang tidak mengandung NISN/Nama tetap dimasukkan ke ZIP dengan nama aslinya.
-            Lihat <code>_rename_log.txt</code> di dalam ZIP untuk detail per-file.
+            <strong>Output filename format:</strong>
+            <code>filename_NISN_StudentName.pdf</code><br>
+            Files where NISN/name cannot be found are still included in the ZIP under their original name.
+            See <code>_rename_log.txt</code> inside the ZIP for per-file details.
         </p>
         <p style="font-size:.9em;color:var(--muted)">
             <i class="bi bi-info-circle"></i>
-            Hanya bekerja pada PDF berbasis teks (bukan PDF hasil scan/foto). Untuk PDF scan,
-            pastikan PDF sudah melalui proses OCR terlebih dahulu.
+            Only works on text-based PDFs (not scanned/image PDFs).
+            For scanned PDFs, run OCR first using the OCR PDF tool.
         </p>
     </div>
 
@@ -37,9 +37,9 @@
             <input type="file" id="file-input" name="files" accept=".pdf" multiple>
             <div class="upload-prompt" id="upload-prompt">
                 <i class="bi bi-tag-fill"></i>
-                <p>Drag &amp; drop file PDF di sini</p>
-                <span>atau klik untuk pilih beberapa file sekaligus</span>
-                <small>Diterima: .pdf &mdash; bisa pilih banyak file sekaligus</small>
+                <p>Drag &amp; drop PDF files here</p>
+                <span>or click to select multiple files</span>
+                <small>Accepted: .pdf &mdash; multiple files supported</small>
             </div>
         </div>
         <div class="file-list" id="file-list"></div>
@@ -47,9 +47,9 @@
         <!-- Selected files preview table -->
         <div id="files-preview" style="display:none;margin:1rem 0">
             <div class="result-text-header" style="border-radius:8px 8px 0 0;padding:.6rem 1rem">
-                <span><i class="bi bi-list-ul"></i> File yang dipilih (<span id="file-count">0</span>)</span>
+                <span><i class="bi bi-list-ul"></i> Selected files (<span id="file-count">0</span>)</span>
                 <button type="button" class="btn btn-small" onclick="clearFiles()">
-                    <i class="bi bi-x-circle"></i> Hapus semua
+                    <i class="bi bi-x-circle"></i> Clear all
                 </button>
             </div>
             <div style="background:var(--surface);border:1px solid var(--border);border-top:none;
@@ -61,44 +61,44 @@
         <!-- Advanced Options (collapsible) -->
         <details style="margin:1rem 0">
             <summary style="cursor:pointer;font-weight:600;color:var(--muted);user-select:none">
-                <i class="bi bi-sliders"></i> Opsi Lanjutan (Pola Regex Custom)
+                <i class="bi bi-sliders"></i> Advanced Options (Custom Regex)
             </summary>
             <div style="margin-top:.75rem;padding:1rem;background:var(--surface);
                         border:1px solid var(--border);border-radius:8px">
                 <p style="font-size:.88em;color:var(--muted);margin-bottom:.75rem">
-                    Kosongkan jika ingin menggunakan deteksi otomatis. Isi hanya jika format
-                    dokumen Anda tidak terdeteksi. Gunakan <strong>grup tangkap</strong>
-                    <code>( )</code> untuk menangkap nilai yang diinginkan.
+                    Leave blank to use auto-detection. Fill in only if your document
+                    format is not detected. Use a <strong>capture group</strong>
+                    <code>( )</code> to extract the desired value.
                 </p>
                 <div class="form-group">
                     <label for="nisn-pattern">
-                        Pola NISN (regex)
+                        NISN pattern (regex)
                         <span style="font-size:.8em;color:var(--muted);font-weight:400">
-                            &mdash; contoh: <code>No\.?\s*NISN\s*[:\-]\s*(\d{10})</code>
+                            &mdash; e.g. <code>No\.?\s*NISN\s*[:\-]\s*(\d{10})</code>
                         </span>
                     </label>
                     <input type="text" id="nisn-pattern" name="nisn_pattern"
-                           placeholder="Biarkan kosong untuk deteksi otomatis"
+                           placeholder="Leave blank for auto-detection"
                            style="font-family:monospace">
                 </div>
                 <div class="form-group">
                     <label for="nama-pattern">
-                        Pola Nama Siswa (regex)
+                        Student name pattern (regex)
                         <span style="font-size:.8em;color:var(--muted);font-weight:400">
-                            &mdash; contoh: <code>Nama\s+Peserta\s*:\s*([^\n]{3,60})</code>
+                            &mdash; e.g. <code>Nama\s+Peserta\s*:\s*([^\n]{3,60})</code>
                         </span>
                     </label>
                     <input type="text" id="nama-pattern" name="nama_pattern"
-                           placeholder="Biarkan kosong untuk deteksi otomatis"
+                           placeholder="Leave blank for auto-detection"
                            style="font-family:monospace">
                 </div>
             </div>
         </details>
 
         <button type="submit" class="btn btn-primary" id="submit-btn">
-            <span class="btn-text"><i class="bi bi-tag-fill"></i> Proses &amp; Rename</span>
+            <span class="btn-text"><i class="bi bi-tag-fill"></i> Process &amp; Rename</span>
             <span class="btn-loading" style="display:none">
-                <i class="bi bi-arrow-repeat spin"></i> Memproses PDF&hellip;
+                <i class="bi bi-arrow-repeat spin"></i> Processing PDFs&hellip;
             </span>
         </button>
     </form>
@@ -107,7 +107,7 @@
     <div id="result-area" class="result-area" style="display:none">
         <div id="result-success" class="result-success" style="display:none">
             <i class="bi bi-check-circle-fill"></i>
-            <span id="result-message">Selesai!</span>
+            <span id="result-message">Done!</span>
             <a id="download-btn" class="btn btn-success" download>
                 <i class="bi bi-download"></i> Download ZIP
             </a>
@@ -142,8 +142,8 @@ function updateFilesPreview() {
     const files = fileInput.files;
     if (!files || files.length === 0) {
         filesPreview.style.display = 'none';
-        uploadPrompt.querySelector('p').textContent = 'Drag & drop file PDF di sini';
-        uploadPrompt.querySelector('span').textContent = 'atau klik untuk pilih beberapa file sekaligus';
+        uploadPrompt.querySelector('p').textContent = 'Drag & drop PDF files here';
+        uploadPrompt.querySelector('span').textContent = 'or click to select multiple files';
         return;
     }
     filesPreview.style.display = '';
@@ -157,15 +157,15 @@ function updateFilesPreview() {
             <span style="color:var(--muted);font-size:.82em;flex-shrink:0">${formatSize(f.size)}</span>`;
         filesListUl.appendChild(li);
     });
-    uploadPrompt.querySelector('p').textContent = `${files.length} file dipilih`;
-    uploadPrompt.querySelector('span').textContent = 'Klik untuk ganti pilihan';
+    uploadPrompt.querySelector('p').textContent = `${files.length} file(s) selected`;
+    uploadPrompt.querySelector('span').textContent = 'Click to change selection';
 }
 
 function clearFiles() {
     fileInput.value = '';
     filesPreview.style.display = 'none';
-    uploadPrompt.querySelector('p').textContent = 'Drag & drop file PDF di sini';
-    uploadPrompt.querySelector('span').textContent = 'atau klik untuk pilih beberapa file sekaligus';
+    uploadPrompt.querySelector('p').textContent = 'Drag & drop PDF files here';
+    uploadPrompt.querySelector('span').textContent = 'or click to select multiple files';
 }
 
 fileInput.addEventListener('change', updateFilesPreview);
@@ -185,7 +185,7 @@ document.getElementById('tool-form').addEventListener('submit', async (e) => {
 
     const files = fileInput.files;
     if (!files || files.length === 0) {
-        showError('Pilih minimal satu file PDF.');
+        showError('Please select at least one PDF file.');
         return;
     }
 
@@ -225,14 +225,14 @@ document.getElementById('tool-form').addEventListener('submit', async (e) => {
 
         downloadBtn.href = url;
         downloadBtn.download = filename;
-        resultMessage.textContent = `${files.length} file diproses. Download ZIP dan cek _rename_log.txt di dalamnya.`;
+        resultMessage.textContent = `${files.length} file(s) processed. Download ZIP and check _rename_log.txt inside.`;
 
         resultArea.style.display = '';
         resultSuccess.style.display = '';
         downloadBtn.click();
 
     } catch (err) {
-        showError('Gagal menghubungi server: ' + err.message);
+        showError('Failed to reach server: ' + err.message);
     } finally {
         btnText.style.display = '';
         btnLoading.style.display = 'none';

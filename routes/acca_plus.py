@@ -43,20 +43,20 @@ def latex_ocr_page():
     if HAS_PIX2TEX:
         status_html = (
             '<p><i class="bi bi-check-circle-fill" style="color:#16a34a"></i> '
-            '<strong>pix2tex siap digunakan.</strong> Model LaTeX-OCR terdeteksi.</p>'
+            '<strong>pix2tex ready.</strong> LaTeX-OCR model detected.</p>'
         )
     else:
         status_html = (
             '<p><i class="bi bi-exclamation-triangle-fill" style="color:#ffb703"></i> '
-            '<strong>pix2tex belum terinstal.</strong> Install di server dengan: '
-            '<code>pip install pix2tex</code> lalu restart server. '
-            'Membutuhkan PyTorch; bobot model (~300 MB) diunduh otomatis saat pertama kali dijalankan.</p>'
+            '<strong>pix2tex not installed.</strong> Run on the server: '
+            '<code>pip install pix2tex</code> then restart. '
+            'Requires PyTorch; model weights (~300 MB) are downloaded automatically on first use.</p>'
         )
 
     return render_template(
         "tools/latex_ocr.html",
         title="Formula to LaTeX",
-        description="Ubah foto atau gambar rumus matematika menjadi kode LaTeX secara otomatis",
+        description="Convert a formula image to LaTeX code automatically",
         status_html=status_html,
         has_pix2tex=HAS_PIX2TEX,
         endpoint="/acca-plus/latex-ocr",
@@ -68,7 +68,7 @@ def latex_ocr_page():
 def latex_ocr():
     if not HAS_PIX2TEX:
         return jsonify(
-            error="pix2tex belum terinstal. Jalankan: pip install pix2tex di server, lalu restart."
+            error="pix2tex is not installed. Run: pip install pix2tex on the server, then restart."
         ), 400
 
     files = request.files.getlist("files")
@@ -81,17 +81,17 @@ def latex_ocr():
         img = Image.open(io.BytesIO(files[0].read())).convert("RGB")
     except Exception as e:
         log_error(e, "latex_ocr.open")
-        return jsonify(error="Gagal membuka gambar. Pastikan file adalah gambar yang valid."), 400
+        return jsonify(error="Failed to open image. Make sure the file is a valid image."), 400
 
     try:
         model = _get_model()
         latex = model(img)
     except Exception as e:
         log_error(e, "latex_ocr.predict")
-        return jsonify(error=f"Prediksi LaTeX gagal: {e}"), 500
+        return jsonify(error=f"LaTeX prediction failed: {e}"), 500
 
     if not latex or not latex.strip():
-        return jsonify(latex="(Tidak ada formula yang terdeteksi)")
+        return jsonify(latex="(No formula detected)")
 
     return jsonify(latex=latex.strip())
 
@@ -191,20 +191,19 @@ def images_to_tex_page():
     if HAS_PIX2TEX:
         status_html = (
             '<p><i class="bi bi-check-circle-fill" style="color:#16a34a"></i> '
-            '<strong>pix2tex siap digunakan.</strong></p>'
+            '<strong>pix2tex ready.</strong></p>'
         )
     else:
         status_html = (
             '<p><i class="bi bi-exclamation-triangle-fill" style="color:#ffb703"></i> '
-            '<strong>pix2tex belum terinstal.</strong> '
-            'Install di server: <code>/www/wwwroot/acca-tools/.venv/bin/pip install pix2tex</code> '
-            'lalu restart server.</p>'
+            '<strong>pix2tex not installed.</strong> '
+            'Run on the server: <code>pip install pix2tex</code> then restart.</p>'
         )
 
     return render_template(
         "tools/images_to_tex.html",
-        title="Gambar ke Dokumen TeX",
-        description="Konversi beberapa gambar rumus menjadi satu dokumen .tex siap kompilasi",
+        title="Images to TeX",
+        description="Batch convert formula images into a single compilable .tex document",
         status_html=status_html,
         has_pix2tex=HAS_PIX2TEX,
         endpoint="/acca-plus/images-to-tex",
@@ -216,12 +215,12 @@ def images_to_tex_page():
 def images_to_tex():
     if not HAS_PIX2TEX:
         return jsonify(
-            error="pix2tex belum terinstal. Jalankan pip install pix2tex di server, lalu restart."
+            error="pix2tex is not installed. Run: pip install pix2tex on the server, then restart."
         ), 400
 
     files = request.files.getlist("files")
     if not files or not files[0].filename:
-        return jsonify(error="Harap upload minimal satu gambar."), 400
+        return jsonify(error="Please upload at least one image."), 400
 
     # Document options
     title   = (request.form.get("doc_title")   or "Modul Matematika").strip()
@@ -255,16 +254,16 @@ def images_to_tex():
             img   = Image.open(io.BytesIO(upload.read())).convert("RGB")
             latex = model(img)
             if not latex or not latex.strip():
-                latex = r"\text{(tidak terdeteksi)}"
+                latex = r"\text{(not detected)}"
             formulas.append({"label": label, "latex": latex.strip()})
         except Exception as e:
             log_error(e, f"images_to_tex.img{i}")
-            errors.append(f"Gambar {i + 1} ({upload.filename}): {e}")
+            errors.append(f"Image {i + 1} ({upload.filename}): {e}")
             formulas.append({"label": label,
-                              "latex": r"\text{(gagal diproses)}"})
+                              "latex": r"\text{(processing failed)}"})
 
     if not formulas:
-        return jsonify(error="Tidak ada gambar yang berhasil diproses."), 400
+        return jsonify(error="No images could be processed."), 400
 
     tex = _build_tex(formulas, title, author, paper, docclass, section_style, math_delim)
 
@@ -329,11 +328,11 @@ def _extract_nisn_and_nama(text: str) -> tuple[str, str]:
 def rename_pdf_page():
     return render_template(
         "tools/rename_pdf.html",
-        title="Rename PDF (NISN & Nama Siswa)",
+        title="Rename PDFs",
         description=(
-            "Upload banyak file PDF sekaligus. NISN dan Nama Siswa akan diekstrak "
-            "otomatis dari isi dokumen, lalu file diunduh sebagai ZIP dengan nama "
-            "format: <code>namafile_NISN_NamaSiswa.pdf</code>"
+            "Upload multiple PDFs at once. NISN and student name are extracted "
+            "automatically from each document and used to rename the files: "
+            "<code>filename_NISN_StudentName.pdf</code>"
         ),
         endpoint="/acca-plus/rename-pdf",
     )
@@ -342,7 +341,7 @@ def rename_pdf_page():
 @bp.route("/rename-pdf", methods=["POST"])
 def rename_pdf():
     if fitz is None:
-        return jsonify(error="PyMuPDF (fitz) belum terinstal di server."), 500
+        return jsonify(error="PyMuPDF (fitz) is not installed on the server."), 500
 
     files = request.files.getlist("files")
     if not files or not files[0].filename:
@@ -356,7 +355,7 @@ def rename_pdf():
         re_nisn_custom = re.compile(custom_nisn_pattern, re.IGNORECASE) if custom_nisn_pattern else None
         re_nama_custom = re.compile(custom_nama_pattern, re.IGNORECASE) if custom_nama_pattern else None
     except re.error as e:
-        return jsonify(error=f"Pola regex tidak valid: {e}"), 400
+        return jsonify(error=f"Invalid regex pattern: {e}"), 400
 
     zip_buf = io.BytesIO()
     log_lines: list[str] = []
@@ -408,14 +407,14 @@ def rename_pdf():
                 new_name = "_".join(parts) + ".pdf"
                 status = "OK"
                 if not nisn:
-                    status += " [NISN tidak ditemukan]"
+                    status += " [NISN not found]"
                 if not nama:
-                    status += " [Nama tidak ditemukan]"
+                    status += " [Name not found]"
 
             except Exception as e:
                 log_error(e, f"rename_pdf.{original_filename}")
                 new_name = original_filename  # keep original name on error
-                data = upload.read() if not data else data
+                data = data if data else upload.read()
                 status = f"ERROR: {e}"
 
             zf.writestr(new_name, data)
@@ -427,7 +426,7 @@ def rename_pdf():
         zf.writestr("_rename_log.txt", log_text.encode("utf-8"))
 
     if processed == 0:
-        return jsonify(error="Tidak ada file PDF yang berhasil diproses."), 400
+        return jsonify(error="No PDF files could be processed."), 400
 
     zip_buf.seek(0)
     return send_file(

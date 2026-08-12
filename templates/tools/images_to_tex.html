@@ -10,7 +10,7 @@
 
     <div class="tool-notes">
         {{ status_html|safe }}
-        <p>Upload beberapa gambar rumus, atur label tiap gambar dan opsi dokumen, lalu unduh file <code>.tex</code> yang siap dikompilasi di <strong>Overleaf</strong> atau <strong>TeX Live</strong>.</p>
+        <p>Upload formula images, set a label for each, configure document options, then download the <code>.tex</code> file ready to compile in <strong>Overleaf</strong> or <strong>TeX Live</strong>.</p>
     </div>
 
     <div id="capability-status" class="capability-status" data-endpoint="{{ endpoint }}" style="display:none"></div>
@@ -22,16 +22,16 @@
             <input type="file" id="file-input" name="files" accept="{{ accept }}" multiple>
             <div class="upload-prompt" id="upload-prompt">
                 <i class="bi bi-images"></i>
-                <p>Drag &amp; drop beberapa gambar rumus di sini</p>
-                <span>atau klik untuk pilih file</span>
-                <small>Diterima: {{ accept }}</small>
+                <p>Drag &amp; drop formula images here</p>
+                <span>or click to browse</span>
+                <small>Accepted: {{ accept }}</small>
             </div>
         </div>
 
         <!-- Per-image label list -->
         <div id="img-label-list" style="display:none;margin:1.25rem 0">
             <p style="font-weight:600;margin-bottom:.5rem">
-                <i class="bi bi-list-ol"></i> Daftar Gambar &amp; Label Section
+                <i class="bi bi-list-ol"></i> Images &amp; Section Labels
             </p>
             <div id="img-label-items"></div>
         </div>
@@ -40,19 +40,19 @@
         <div class="tool-options" style="margin-top:1rem">
 
             <div class="form-group option-group">
-                <label for="opt-doc_title">Judul Dokumen</label>
+                <label for="opt-doc_title">Document Title</label>
                 <input type="text" id="opt-doc_title" name="doc_title"
-                       value="Modul Matematika" placeholder="Judul dokumen .tex">
+                       value="Math Module" placeholder="Document title">
             </div>
 
             <div class="form-group option-group">
-                <label for="opt-doc_author">Penulis / Author</label>
+                <label for="opt-doc_author">Author</label>
                 <input type="text" id="opt-doc_author" name="doc_author"
-                       placeholder="Nama penulis (opsional)">
+                       placeholder="Author name (optional)">
             </div>
 
             <div class="form-group option-group">
-                <label for="opt-paper_size">Ukuran Kertas</label>
+                <label for="opt-paper_size">Paper Size</label>
                 <select id="opt-paper_size" name="paper_size">
                     <option value="a4paper"     selected>A4 (210 x 297 mm)</option>
                     <option value="a5paper"            >A5 (148 x 210 mm)</option>
@@ -63,25 +63,25 @@
             </div>
 
             <div class="form-group option-group">
-                <label for="opt-doc_class">Kelas Dokumen</label>
+                <label for="opt-doc_class">Document Class</label>
                 <select id="opt-doc_class" name="doc_class" id="sel-docclass">
-                    <option value="article" selected>article - dokumen umum</option>
-                    <option value="report"           >report - laporan panjang</option>
-                    <option value="beamer"           >beamer - presentasi slide</option>
+                    <option value="article" selected>article — general document</option>
+                    <option value="report"           >report — long report</option>
+                    <option value="beamer"           >beamer — presentation slides</option>
                 </select>
             </div>
 
             <div class="form-group option-group" id="section-style-group">
-                <label for="opt-section_style">Gaya Section</label>
+                <label for="opt-section_style">Section Style</label>
                 <select id="opt-section_style" name="section_style">
-                    <option value="section"    selected>\section* - heading besar</option>
-                    <option value="subsection"         >\subsection* - heading kecil</option>
-                    <option value="none"               >Tanpa heading</option>
+                    <option value="section"    selected>\section* — large heading</option>
+                    <option value="subsection"         >\subsection* — small heading</option>
+                    <option value="none"               >No heading</option>
                 </select>
             </div>
 
             <div class="form-group option-group">
-                <label for="opt-math_delim">Delimiter Formula</label>
+                <label for="opt-math_delim">Math Delimiter</label>
                 <select id="opt-math_delim" name="math_delim">
                     <option value="display"       selected>\[ ... \] &mdash; display, tanpa nomor (standar)</option>
                     <option value="display_dbl"          >$$ ... $$ &mdash; display, gaya lama</option>
@@ -96,9 +96,9 @@
 
         <button type="submit" class="btn btn-primary" id="submit-btn"
                 {% if not has_pix2tex %}disabled title="pix2tex belum terinstal"{% endif %}>
-            <span class="btn-text"><i class="bi bi-magic"></i> Buat Dokumen .tex</span>
+            <span class="btn-text"><i class="bi bi-magic"></i> Generate .tex</span>
             <span class="btn-loading" style="display:none">
-                <i class="bi bi-arrow-repeat spin"></i> Memproses gambar... harap tunggu
+                <i class="bi bi-arrow-repeat spin"></i> Processing images, please wait…
             </span>
         </button>
     </form>
@@ -123,7 +123,7 @@
         <!-- MathJax preview of all formulas -->
         <div id="math-all-box" style="display:none;margin-bottom:1.25rem">
             <div class="result-text-header" style="border-radius:8px 8px 0 0">
-                <span><i class="bi bi-eye"></i> Preview Semua Formula</span>
+                <span><i class="bi bi-eye"></i> Formula Preview</span>
             </div>
             <div id="math-all-content"
                  style="padding:1.25rem;background:var(--surface);
@@ -134,13 +134,13 @@
         <!-- .tex source -->
         <div id="result-tex-box" style="display:none">
             <div class="result-text-header" style="border-radius:8px 8px 0 0">
-                <span><i class="bi bi-code-slash"></i> Isi File .tex</span>
+                <span><i class="bi bi-code-slash"></i> .tex Source</span>
                 <div style="display:flex;gap:.5rem">
                     <button class="btn btn-small" onclick="copyTex()">
-                        <i class="bi bi-clipboard"></i> Salin
+                        <i class="bi bi-clipboard"></i> Copy
                     </button>
                     <button class="btn btn-small btn-success" onclick="downloadTex()">
-                        <i class="bi bi-download"></i> Unduh .tex
+                        <i class="bi bi-download"></i> Download .tex
                     </button>
                 </div>
             </div>
@@ -205,7 +205,7 @@ function rebuildLabelList() {
         inp.type = 'text';
         inp.name = 'label_' + i;
         inp.value = 'Formula ' + (i + 1);
-        inp.placeholder = 'Label gambar ' + (i + 1);
+        inp.placeholder = 'Image label ' + (i + 1);
         inp.style.cssText = 'flex:1;padding:.35rem .6rem;font-size:.9em';
 
         const badge = document.createElement('span');
@@ -261,7 +261,7 @@ form.addEventListener('submit', async (e) => {
     // Build FormData manually: main.js clears the file input and
     // tracks files in its own `selectedFiles` global array.
     if (!selectedFiles || selectedFiles.length === 0) {
-        errMsg.textContent = 'Harap upload minimal satu gambar.';
+        errMsg.textContent = 'Please upload at least one image.';
         resultErr.style.display = '';
         resultArea.style.display = '';
         btnText.style.display = '';
@@ -291,16 +291,16 @@ form.addEventListener('submit', async (e) => {
         resultArea.style.display = '';
 
         if (!res.ok || data.error) {
-            errMsg.textContent = data.error || 'Terjadi kesalahan.';
+            errMsg.textContent = data.error || 'An error occurred.';
             resultErr.style.display = '';
             return;
         }
 
         // Stats
-        statCount.innerHTML = '<i class="bi bi-check-circle-fill" style="color:#16a34a"></i> <strong>' + data.count + '</strong> formula diproses';
+        statCount.innerHTML = '<i class="bi bi-check-circle-fill" style="color:#16a34a"></i> <strong>' + data.count + '</strong> formulas processed';
         statErrors.textContent = '';
         if (data.errors && data.errors.length) {
-            statErrors.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> ' + data.errors.length + ' gambar gagal';
+            statErrors.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> ' + data.errors.length + ' image(s) failed';
         }
         resultStats.style.display = 'flex';
 
@@ -326,7 +326,7 @@ form.addEventListener('submit', async (e) => {
 
     } catch (err) {
         resultArea.style.display = '';
-        errMsg.textContent = 'Gagal menghubungi server: ' + err.message;
+        errMsg.textContent = 'Failed to reach server: ' + err.message;
         resultErr.style.display = '';
     } finally {
         btnText.style.display = '';
@@ -343,7 +343,7 @@ function copyTex() {
     navigator.clipboard.writeText(_lastTex).then(() => {
         const btn = document.querySelector('[onclick="copyTex()"]');
         const orig = btn.innerHTML;
-        btn.innerHTML = '<i class="bi bi-check-lg"></i> Disalin!';
+        btn.innerHTML = '<i class="bi bi-check-lg"></i> Copied!';
         setTimeout(() => { btn.innerHTML = orig; }, 2000);
     });
 }

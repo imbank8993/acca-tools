@@ -206,9 +206,9 @@ TOOL_CATEGORIES = [
         "name": "ACCA Plus",
         "icon": "bi-stars",
         "tools": [
-            {"id": "latex-ocr", "name": "Formula to LaTeX", "desc": "Ubah foto/gambar rumus matematika menjadi kode LaTeX (pix2tex)", "icon": "bi-calculator-fill"},
-            {"id": "images-to-tex", "name": "Gambar ke Dokumen TeX", "desc": "Konversi beberapa gambar rumus menjadi satu file .tex siap kompilasi", "icon": "bi-file-earmark-code-fill"},
-            {"id": "rename-pdf", "name": "Rename PDF (NISN & Nama)", "desc": "Rename massal PDF berdasarkan NISN & Nama Siswa dari isi dokumen", "icon": "bi-tag-fill"},
+            {"id": "latex-ocr", "name": "Formula to LaTeX", "desc": "Convert formula image to LaTeX code", "icon": "bi-calculator-fill"},
+            {"id": "images-to-tex", "name": "Images to TeX", "desc": "Batch convert formula images to a .tex document", "icon": "bi-file-earmark-code-fill"},
+            {"id": "rename-pdf", "name": "Rename PDFs", "desc": "Bulk rename PDFs using NISN & student name from content", "icon": "bi-tag-fill"},
         ],
     },
 ]
