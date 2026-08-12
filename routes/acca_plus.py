@@ -3,6 +3,10 @@ import io
 import re
 import zipfile
 import os
+import json
+import base64
+import urllib.request
+import urllib.error
 
 from flask import Blueprint, jsonify, render_template, request, send_file
 
@@ -28,10 +32,13 @@ def get_gemini_api_key():
     key = os.environ.get("GEMINI_API_KEY")
     if key: return key
     try:
-        with open(".env", "r") as f:
+        # Resolve relative to this file's directory (routes/) -> parent directory
+        env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+        with open(env_path, "r") as f:
             for line in f:
+                line = line.strip()
                 if line.startswith("GEMINI_API_KEY="):
-                    return line.strip().split("=", 1)[1]
+                    return line.split("=", 1)[1]
     except Exception:
         pass
     return None
@@ -71,16 +78,20 @@ def _gemini_image_to_latex(image_bytes: bytes, mime_type: str) -> str:
         }
     }
     
-    response = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
-    
-    if response.status_code != 200:
-        err_msg = "Unknown error"
+    req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req) as response:
+            resp_data = response.read().decode('utf-8')
+            data = json.loads(resp_data)
+    except urllib.error.HTTPError as e:
+        err_msg = e.read().decode('utf-8')
         try:
-            err_msg = response.json().get('error', {}).get('message', str(response.text))
+            err_msg = json.loads(err_msg).get('error', {}).get('message', err_msg)
         except: pass
-        raise Exception(f"Gemini API Error: {err_msg}")
+        raise Exception(f"Gemini API HTTP Error: {err_msg}")
+    except Exception as e:
+        raise Exception(f"Gemini API Network Error: {str(e)}")
         
-    data = response.json()
     try:
         latex_text = data['candidates'][0]['content']['parts'][0]['text']
         if latex_text.startswith("```latex"): latex_text = latex_text.split("```latex", 1)[1]
