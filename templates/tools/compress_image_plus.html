@@ -274,7 +274,10 @@ form.addEventListener('submit', async (e) => {
         resultArea.style.display = '';
         resultSucc.style.display = '';
         
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        if (window.currentBlobUrl) {
+            URL.revokeObjectURL(window.currentBlobUrl);
+        }
+        window.currentBlobUrl = url;
 
     } catch (err) {
         showError('Failed to reach server: ' + err.message);

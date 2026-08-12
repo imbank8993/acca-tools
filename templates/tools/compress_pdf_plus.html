@@ -295,7 +295,13 @@ form.addEventListener('submit', async (e) => {
         resultSucc.style.display = '';
         sizeCard.style.display   = '';
 
-        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        // Note: We used to revoke the URL after 60 seconds, which caused 
+        // "Network Error" if the user clicked Download late. 
+        // Now we keep it alive until the page reloads or a new file is compressed.
+        if (window.currentBlobUrl) {
+            URL.revokeObjectURL(window.currentBlobUrl);
+        }
+        window.currentBlobUrl = url;
 
     } catch (err) {
         showError('Failed to reach server: ' + err.message);
