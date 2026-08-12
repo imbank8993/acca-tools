@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - ACCA - TOOLS{% endblock %}
+
+{% block content %}
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>{{ title }}</h1>
+        <p>{{ description }}</p>
+    </div>
+
+    <div class="tool-notes">
+        <p>
+            <strong>How it works:</strong>
+            The tool runs a smart binary search — trying different JPEG quality levels and
+            dimensions to find the smallest file that stays as close to your target as possible.
+        </p>
+        <p style="font-size:.9em;color:var(--muted)">
+            <i class="bi bi-info-circle"></i>
+            You can upload a single image or multiple images. If multiple images are uploaded,
+            each will be compressed to the target size individually and downloaded as a ZIP file.
+        </p>
+    </div>
+
+    <div id="capability-status" class="capability-status" data-endpoint="{{ endpoint }}" style="display:none"></div>
+
+    <form id="compress-form" data-endpoint="{{ endpoint }}">
+        <!-- Upload zone -->
+        <div class="upload-zone" id="upload-zone">
+            <input type="file" id="file-input" name="files" accept="{{ accept }}" multiple>
+            <div class="upload-prompt" id="upload-prompt">
+                <i class="bi bi-file-image-fill"></i>
+                <p>Drag &amp; drop images here</p>
+                <span>or click to browse</span>
+                <small>Accepted: {{ accept }}</small>
+            </div>
+        </div>
+        <div class="file-list" id="file-list"></div>
+
+        <!-- File info after selection -->
+        <div id="file-info" style="display:none;margin:.75rem 0;padding:.6rem 1rem;
+             background:var(--surface);border:1px solid var(--border);border-radius:8px;
+             font-size:.9em;color:var(--muted)">
+            <i class="bi bi-images" style="color:#3b82f6"></i>
+            <span id="file-name-label"></span>
+        </div>
+
+        <!-- Target size input -->
+        <div class="tool-options">
+            <div class="form-group option-group">
+                <label for="target-size-input">Target File Size (per image)</label>
+                <div style="display:flex;gap:.5rem;align-items:center">
+                    <input type="number" id="target-size-input" name="target_size"
+                           min="1" step="any" placeholder="e.g. 200"
+                           style="flex:1;max-width:180px">
+                    <select id="target-unit" name="target_unit" style="width:80px">
+                        <option value="KB" selected>KB</option>
+                        <option value="MB">MB</option>
+                    </select>
+                </div>
+                <small style="color:var(--muted);margin-top:.3rem;display:block">
+                    Enter the size you want each output image to be approximately.
+                </small>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="submit-btn">
+            <span class="btn-text"><i class="bi bi-arrow-down-circle-fill"></i> Compress Images</span>
+            <span class="btn-loading" style="display:none">
+                <i class="bi bi-arrow-repeat spin"></i> Compressing&hellip; please wait
+            </span>
+        </button>
+    </form>
+
+    <!-- Result area -->
+    <div id="result-area" class="result-area" style="display:none">
+
+        <!-- Success -->
+        <div id="result-success" class="result-success" style="display:none">
+            <i class="bi bi-check-circle-fill"></i>
+            <span id="result-message">Done!</span>
+            <a id="download-btn" class="btn btn-success" download>
+                <i class="bi bi-download"></i> Download
+            </a>
+        </div>
+
+        <!-- Size comparison card (only shown for single file uploads) -->
+        <div id="size-card" style="display:none;margin-top:1rem;
+             background:var(--surface);border:1px solid var(--border);
+             border-radius:10px;overflow:hidden">
+            <div class="result-text-header" style="border-radius:0">
+                <span><i class="bi bi-bar-chart-fill"></i> Compression Summary</span>
+            </div>
+            <div style="padding:1rem 1.25rem;display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;text-align:center">
+                <div>
+                    <div style="font-size:.78em;color:var(--muted);margin-bottom:.2rem">Original</div>
+                    <div id="sz-original" style="font-size:1.15em;font-weight:700"></div>
+                </div>
+                <div>
+                    <div style="font-size:.78em;color:var(--muted);margin-bottom:.2rem">Target</div>
+                    <div id="sz-target" style="font-size:1.15em;font-weight:700;color:#3b82f6"></div>
+                </div>
+                <div>
+                    <div style="font-size:.78em;color:var(--muted);margin-bottom:.2rem">Achieved</div>
+                    <div id="sz-achieved" style="font-size:1.15em;font-weight:700"></div>
+                </div>
+            </div>
+            <!-- Progress bar -->
+            <div style="padding:0 1.25rem 1rem">
+                <div style="background:var(--border);border-radius:99px;height:8px;overflow:hidden">
+                    <div id="sz-bar" style="height:100%;border-radius:99px;transition:width .5s ease;width:0%"></div>
+                </div>
+                <div id="sz-note" style="font-size:.82em;color:var(--muted);margin-top:.4rem;text-align:center"></div>
+            </div>
+        </div>
+
+        <!-- Error -->
+        <div id="result-error" class="result-error" style="display:none">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <span id="error-message"></span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const form        = document.getElementById('compress-form');
+const fileInput   = document.getElementById('file-input');
+const submitBtn   = document.getElementById('submit-btn');
+const btnText     = submitBtn.querySelector('.btn-text');
+const btnLoading  = submitBtn.querySelector('.btn-loading');
+const resultArea  = document.getElementById('result-area');
+const resultSucc  = document.getElementById('result-success');
+const resultErr   = document.getElementById('result-error');
+const errMsg      = document.getElementById('error-message');
+const resultMsg   = document.getElementById('result-message');
+const downloadBtn = document.getElementById('download-btn');
+const fileInfo    = document.getElementById('file-info');
+const fileNameLbl = document.getElementById('file-name-label');
+const sizeCard    = document.getElementById('size-card');
+
+function updateFileInfo(files) {
+    if (!files || files.length === 0) {
+        fileInfo.style.display = 'none';
+        return;
+    }
+    fileInfo.style.display = '';
+    if (files.length === 1) {
+        fileNameLbl.innerHTML = `<strong>${files[0].name}</strong> (${fmtBytes(files[0].size)})`;
+    } else {
+        fileNameLbl.innerHTML = `<strong>${files.length} images selected</strong>`;
+    }
+}
+
+fileInput.addEventListener('change', () => {
+    updateFileInfo(fileInput.files);
+});
+
+// Also hook into main.js's upload-zone click / drag events
+const _origRFL = window.renderFileList || function(){};
+window.renderFileList = function() {
+    _origRFL();
+    updateFileInfo(typeof selectedFiles !== 'undefined' ? selectedFiles : fileInput.files);
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function fmtBytes(b) {
+    if (b >= 1048576) return (b / 1048576).toFixed(2) + ' MB';
+    if (b >= 1024)    return (b / 1024).toFixed(1) + ' KB';
+    return b + ' B';
+}
+
+function showError(msg) {
+    resultArea.style.display  = '';
+    resultSucc.style.display  = 'none';
+    sizeCard.style.display    = 'none';
+    resultErr.style.display   = '';
+    errMsg.textContent = msg;
+}
+
+function resetUI() {
+    resultArea.style.display = 'none';
+    resultSucc.style.display = 'none';
+    resultErr.style.display  = 'none';
+    sizeCard.style.display   = 'none';
+}
+
+// ── Form submit ────────────────────────────────────────────────────────────
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    resetUI();
+
+    const files = (typeof selectedFiles !== 'undefined' && selectedFiles.length > 0)
+        ? selectedFiles
+        : fileInput.files;
+
+    if (!files || files.length === 0) { showError('Please select at least one image.'); return; }
+
+    const targetVal  = parseFloat(document.getElementById('target-size-input').value);
+    const targetUnit = document.getElementById('target-unit').value;
+    if (!targetVal || targetVal <= 0) { showError('Please enter a valid target size.'); return; }
+
+    btnText.style.display    = 'none';
+    btnLoading.style.display = '';
+    submitBtn.disabled = true;
+
+    try {
+        const fd = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            fd.append('files', files[i]);
+        }
+        fd.append('target_size', targetVal);
+        fd.append('target_unit', targetUnit);
+
+        const res = await fetch(form.dataset.endpoint, { method: 'POST', body: fd });
+
+        if (!res.ok) {
+            try {
+                const j = await res.json();
+                showError(j.error || `Server error ${res.status}`);
+            } catch {
+                showError(`Server error ${res.status}`);
+            }
+            return;
+        }
+
+        const isZip = res.headers.get('X-Is-Zip') === '1';
+
+        // Trigger file download
+        const blob     = await res.blob();
+        const url      = URL.createObjectURL(blob);
+        const disp     = res.headers.get('Content-Disposition') || '';
+        const nameMatch = disp.match(/filename="?([^"]+)"?/);
+        const fileName  = nameMatch ? nameMatch[1] : (isZip ? 'compressed_images.zip' : 'compressed.jpg');
+
+        downloadBtn.href     = url;
+        downloadBtn.download = fileName;
+
+        if (isZip) {
+            // Multiple files case: just show success message
+            resultMsg.textContent = `${files.length} images processed successfully. Check the ZIP for details.`;
+            sizeCard.style.display = 'none';
+        } else {
+            // Single file case: show detailed card
+            const origSize     = parseInt(res.headers.get('X-Original-Size') || '0');
+            const achvSize     = parseInt(res.headers.get('X-Achieved-Size')  || '0');
+            const tgtSize      = parseInt(res.headers.get('X-Target-Size')    || '0');
+            const targetMet    = res.headers.get('X-Target-Met') === '1';
+
+            const savedPct = origSize > 0 ? Math.round((1 - achvSize / origSize) * 100) : 0;
+            resultMsg.textContent = `Reduced by ${savedPct}%  ·  ${fmtBytes(achvSize)}`;
+
+            document.getElementById('sz-original').textContent = fmtBytes(origSize);
+            document.getElementById('sz-target').textContent   = fmtBytes(tgtSize);
+            document.getElementById('sz-achieved').textContent = fmtBytes(achvSize);
+            document.getElementById('sz-achieved').style.color = targetMet ? '#16a34a' : '#ffb703';
+
+            const barPct = origSize > 0 ? Math.max(2, Math.round(achvSize / origSize * 100)) : 0;
+            const bar    = document.getElementById('sz-bar');
+            bar.style.width      = barPct + '%';
+            bar.style.background = targetMet ? '#16a34a' : '#ffb703';
+
+            const diff = achvSize - tgtSize;
+            if (targetMet) {
+                document.getElementById('sz-note').textContent =
+                    `Target met ✓  (${fmtBytes(Math.abs(diff))} under target)`;
+            } else {
+                document.getElementById('sz-note').textContent =
+                    `Target not fully met — ${fmtBytes(diff)} above target. Image cannot be compressed further without unacceptable quality loss.`;
+            }
+            sizeCard.style.display = '';
+        }
+
+        resultArea.style.display = '';
+        resultSucc.style.display = '';
+        
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+
+    } catch (err) {
+        showError('Failed to reach server: ' + err.message);
+    } finally {
+        btnText.style.display    = '';
+        btnLoading.style.display = 'none';
+        submitBtn.disabled = false;
+    }
+});
+</script>
+{% endblock %}

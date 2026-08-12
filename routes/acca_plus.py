@@ -635,3 +635,177 @@ def compress_pdf_target():
         "X-Original-Size, X-Achieved-Size, X-Target-Size, X-Target-Met"
     )
     return resp
+
+
+# ---------------------------------------------------------------------------
+# Compress Image to Target Size
+# ---------------------------------------------------------------------------
+
+def _compress_image_to_target(img_data: bytes, target_bytes: int) -> tuple[bytes, int, bool]:
+    """
+    Binary-search JPEG compression settings to hit target_bytes for a single image.
+    Returns (best_data, achieved_size, target_met).
+    """
+    from PIL import Image as PILImage
+    original_size = len(img_data)
+    if original_size <= target_bytes:
+        return img_data, original_size, True
+
+    try:
+        pil_img = PILImage.open(io.BytesIO(img_data))
+        if pil_img.mode not in ("RGB", "L"):
+            pil_img = pil_img.convert("RGB")
+    except Exception as e:
+        raise ValueError(f"Invalid image: {e}")
+
+    orig_w, orig_h = pil_img.size
+    best_data = img_data
+    best_size = original_size
+
+    def _update(compressed: bytes) -> None:
+        nonlocal best_data, best_size
+        size = len(compressed)
+        if size <= target_bytes:
+            if best_size > target_bytes or size > best_size:
+                best_data, best_size = compressed, size
+        else:
+            if best_size > target_bytes and size < best_size:
+                best_data, best_size = compressed, size
+
+    def _compress_at(quality: int, scale: float) -> bytes:
+        img = pil_img
+        if scale < 1.0:
+            w = max(1, int(orig_w * scale))
+            h = max(1, int(orig_h * scale))
+            img = pil_img.resize((w, h), PILImage.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality, optimize=True)
+        return buf.getvalue()
+
+    # ── Phase 1: binary-search on JPEG quality (full resolution) ─────────────
+    lo_q, hi_q = 5, 85
+    for _ in range(12):
+        if lo_q > hi_q:
+            break
+        q = (lo_q + hi_q) // 2
+        c = _compress_at(q, 1.0)
+        _update(c)
+        if len(c) <= target_bytes:
+            lo_q = q + 1
+        else:
+            hi_q = q - 1
+
+    if best_size <= target_bytes:
+        return best_data, best_size, True
+
+    # ── Phase 2: binary-search on resolution scaling at quality=30 ────────────
+    lo_s, hi_s = 0.1, 1.0
+    for _ in range(8):
+        if lo_s > hi_s:
+            break
+        s = (lo_s + hi_s) / 2.0
+        c = _compress_at(30, s)
+        _update(c)
+        if len(c) <= target_bytes:
+            lo_s = s + 0.05
+        else:
+            hi_s = s - 0.05
+
+    return best_data, best_size, best_size <= target_bytes
+
+
+@bp.route("/compress-image")
+def compress_image_page():
+    return render_template(
+        "tools/compress_image_plus.html",
+        title="Compress Images",
+        description="Upload images and set your exact desired output file size.",
+        endpoint="/acca-plus/compress-image",
+        accept=".jpg,.jpeg,.png,.webp,.bmp",
+    )
+
+
+@bp.route("/compress-image", methods=["POST"])
+def compress_image_target():
+    files = request.files.getlist("files")
+    if not files or not files[0].filename:
+        return jsonify(error="Please upload at least one image."), 400
+
+    try:
+        target_value = float(request.form.get("target_size", "0") or "0")
+        target_unit = (request.form.get("target_unit", "KB") or "KB").upper()
+        target_bytes = int(target_value * (1024 * 1024 if target_unit == "MB" else 1024))
+    except (ValueError, TypeError):
+        return jsonify(error="Invalid target size value."), 400
+
+    if target_bytes <= 0:
+        return jsonify(error="Target size must be greater than 0."), 400
+
+    # If single file, return it directly
+    if len(files) == 1:
+        upload = files[0]
+        original_name = upload.filename or "image.jpg"
+        stem = os.path.splitext(original_name)[0]
+        data = upload.read()
+        
+        try:
+            res_data, achv, met = _compress_image_to_target(data, target_bytes)
+        except Exception as e:
+            log_error(e, f"compress_image.{original_name}")
+            return jsonify(error=f"Failed to compress image: {e}"), 400
+            
+        out_buf = io.BytesIO(res_data)
+        out_buf.seek(0)
+        resp = send_file(
+            out_buf,
+            mimetype="image/jpeg",
+            as_attachment=True,
+            download_name=f"{stem}_compressed.jpg",
+        )
+        resp.headers["X-Original-Size"] = str(len(data))
+        resp.headers["X-Achieved-Size"] = str(achv)
+        resp.headers["X-Target-Size"] = str(target_bytes)
+        resp.headers["X-Target-Met"] = "1" if met else "0"
+        resp.headers["Access-Control-Expose-Headers"] = "X-Original-Size, X-Achieved-Size, X-Target-Size, X-Target-Met"
+        return resp
+
+    # If multiple files, return a ZIP
+    zip_buf = io.BytesIO()
+    log_lines: list[str] = []
+    processed = 0
+
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for upload in files:
+            orig_name = upload.filename or "unknown.jpg"
+            stem = os.path.splitext(orig_name)[0]
+            data = upload.read()
+            
+            try:
+                res_data, achv, met = _compress_image_to_target(data, target_bytes)
+                new_name = f"{stem}_compressed.jpg"
+                zf.writestr(new_name, res_data)
+                
+                status = "OK" if met else f"Target not met (achieved {achv} bytes)"
+                log_lines.append(f"{orig_name} → {new_name} [{status}]")
+                processed += 1
+            except Exception as e:
+                log_error(e, f"compress_image.{orig_name}")
+                zf.writestr(orig_name, data)
+                log_lines.append(f"{orig_name} → ERROR: {e} (kept original)")
+                
+        zf.writestr("_compression_log.txt", "\n".join(log_lines).encode("utf-8"))
+
+    if processed == 0:
+        return jsonify(error="No images could be processed."), 400
+
+    zip_buf.seek(0)
+    resp = send_file(
+        zip_buf,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name="compressed_images.zip",
+    )
+    # Give a generic header so the frontend knows it's a zip response
+    resp.headers["X-Is-Zip"] = "1"
+    resp.headers["Access-Control-Expose-Headers"] = "X-Is-Zip"
+    return resp
