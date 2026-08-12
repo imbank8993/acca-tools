@@ -207,7 +207,6 @@ TOOL_CATEGORIES = [
         "icon": "bi-stars",
         "tools": [
             {"id": "latex-ocr", "name": "Formula to LaTeX", "desc": "Convert formula image to LaTeX code", "icon": "bi-calculator-fill"},
-            {"id": "images-to-tex", "name": "Images to TeX", "desc": "Batch convert formula images to a .tex document", "icon": "bi-file-earmark-code-fill"},
             {"id": "rename-pdf", "name": "Rename PDFs", "desc": "Bulk rename PDFs using NISN & student name from content", "icon": "bi-tag-fill"},
             {"id": "compress-pdf", "name": "Compress PDF", "desc": "Reduce PDF to a specific target file size", "icon": "bi-file-zip-fill"},
             {"id": "compress-image", "name": "Compress Image", "desc": "Reduce images to a specific target file size", "icon": "bi-file-image-fill"},
