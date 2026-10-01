@@ -23,7 +23,10 @@
 <body>
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <a href="/" class="logo"><img src="{{ url_for('static', filename='images/acca-icon.png') }}" alt="ACCA" class="logo-icon"><span class="logo-text">ACCA - TOOLS</span></a>
+            <a href="/" class="logo" title="ACCA">
+                <img src="{{ url_for('static', filename='images/logo-sidebar.png') }}" alt="ACCA Logo" class="brand-logo-img light-logo">
+                <img src="{{ url_for('static', filename='images/logo-sidebar-dark.png') }}" alt="ACCA Logo" class="brand-logo-img dark-logo">
+            </a>
         </div>
         <div class="sidebar-nav">
             {% for cat in tool_categories %}

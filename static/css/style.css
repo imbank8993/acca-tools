@@ -96,7 +96,43 @@ a { color: var(--primary); text-decoration: none; }
 .logo {
     display: flex;
     align-items: center;
-    gap: .5rem;
+    justify-content: center;
+    text-decoration: none;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    padding: 4px 6px;
+    border-radius: 8px;
+    outline: none;
+}
+.logo:hover {
+    opacity: 0.85;
+}
+.logo:active {
+    transform: scale(0.96);
+}
+.brand-logo-img {
+    width: 120px;
+    height: auto;
+    display: block;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15));
+}
+.brand-logo-img.dark-logo {
+    display: none;
+}
+[data-theme="dark"] .brand-logo-img.light-logo,
+.dark .brand-logo-img.light-logo {
+    display: none;
+}
+[data-theme="dark"] .brand-logo-img.dark-logo,
+.dark .brand-logo-img.dark-logo {
+    display: block;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .brand-logo-img.light-logo {
+        display: none;
+    }
+    :root:not([data-theme="light"]) .brand-logo-img.dark-logo {
+        display: block;
+    }
 }
 .logo-icon {
     height: 25px;
