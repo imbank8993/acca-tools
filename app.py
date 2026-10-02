@@ -24,6 +24,17 @@ app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSION_COOKIE_SECURE", "1
 
 TOOL_CATEGORIES = [
     {
+        "id": "acca-plus",
+        "name": "ACCA Plus",
+        "icon": "bi-stars",
+        "tools": [
+            {"id": "latex-ocr", "name": "Formula to LaTeX", "desc": "Convert formula image to LaTeX code", "icon": "bi-calculator-fill"},
+            {"id": "rename-pdf", "name": "Rename PDFs", "desc": "Bulk rename PDFs using NISN & student name from content", "icon": "bi-tag-fill"},
+            {"id": "compress-pdf", "name": "Compress PDF", "desc": "Reduce PDF to a specific target file size", "icon": "bi-file-zip-fill"},
+            {"id": "compress-image", "name": "Compress Image", "desc": "Reduce images to a specific target file size", "icon": "bi-file-image-fill"},
+        ],
+    },
+    {
         "id": "convert",
         "name": "Document Conversion",
         "icon": "bi-file-earmark-arrow-up-fill",
@@ -199,17 +210,6 @@ TOOL_CATEGORIES = [
             {"id": "burn-subtitles", "name": "Burn Subtitles", "desc": "Permanently render subtitles onto a video", "icon": "bi-fire"},
             {"id": "normalize-audio", "name": "Normalize Audio", "desc": "Loudness normalize to a target LUFS (EBU R128)", "icon": "bi-volume-up-fill"},
             {"id": "transcribe", "name": "Speech to Text", "desc": "Transcribe audio/video to text or subtitles (Whisper)", "icon": "bi-mic-fill"},
-        ],
-    },
-    {
-        "id": "acca-plus",
-        "name": "ACCA Plus",
-        "icon": "bi-stars",
-        "tools": [
-            {"id": "latex-ocr", "name": "Formula to LaTeX", "desc": "Convert formula image to LaTeX code", "icon": "bi-calculator-fill"},
-            {"id": "rename-pdf", "name": "Rename PDFs", "desc": "Bulk rename PDFs using NISN & student name from content", "icon": "bi-tag-fill"},
-            {"id": "compress-pdf", "name": "Compress PDF", "desc": "Reduce PDF to a specific target file size", "icon": "bi-file-zip-fill"},
-            {"id": "compress-image", "name": "Compress Image", "desc": "Reduce images to a specific target file size", "icon": "bi-file-image-fill"},
         ],
     },
 ]
