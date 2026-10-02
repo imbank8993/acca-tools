@@ -93,7 +93,10 @@ document.addEventListener("DOMContentLoaded", () => {
             if (items) {
                 items.classList.add("open");
                 const btn = items.previousElementSibling;
-                if (btn) btn.classList.add("open");
+                if (btn) {
+                    btn.classList.add("open");
+                    btn.classList.add("active");
+                }
             }
         }
     });

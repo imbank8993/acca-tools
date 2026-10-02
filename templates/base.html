@@ -16,55 +16,70 @@
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/icons.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ asset_version }}">
 </head>
 <body>
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <a href="/" class="logo" title="ACCA">
-                <img src="{{ url_for('static', filename='images/logo-sidebar.png') }}" alt="ACCA Logo" class="brand-logo-img light-logo">
-                <img src="{{ url_for('static', filename='images/logo-sidebar-dark.png') }}" alt="ACCA Logo" class="brand-logo-img dark-logo">
-            </a>
+            <div class="brand-wrapper">
+                <a href="/" class="brand-logo" title="ACCA">
+                    <img src="{{ url_for('static', filename='images/logo-sidebar.png') }}" alt="ACCA Logo" class="brand-logo-img light-logo">
+                    <img src="{{ url_for('static', filename='images/logo-sidebar-dark.png') }}" alt="ACCA Logo" class="brand-logo-img dark-logo">
+                </a>
+            </div>
         </div>
+
+        <div class="sidebar-nav-fixed">
+            <div class="sso-cbt-container">
+                <a href="{{ acca_app_url }}" class="sso-cbt-btn" title="Kembali ke ACCA">
+                    <i class="bi bi-arrow-left-short btn-icon"></i>
+                    <span class="btn-label">ACCA</span>
+                </a>
+                <a href="{{ acca_app_url }}/api/sso/cbt" target="_blank" rel="noopener" class="sso-cbt-btn" title="Buka ACCA CBT">
+                    <i class="bi bi-pencil-square btn-icon"></i>
+                    <span class="btn-label">CBT</span>
+                </a>
+            </div>
+        </div>
+
         <div class="sidebar-nav">
+            <div class="nav-section-label">Kategori Tools</div>
             {% for cat in tool_categories %}
-            <div class="nav-category">
-                <button class="nav-category-btn" onclick="toggleCategory(this)">
-                    <i class="bi {{ cat.icon }}"></i> {{ cat.name }}
+            <div class="menu-group nav-category">
+                <button class="menu-btn nav-category-btn" onclick="toggleCategory(this)">
+                    <div class="menu-content">
+                        <i class="bi {{ cat.icon }} menu-icon"></i>
+                        <span class="menu-label">{{ cat.name }}</span>
+                    </div>
                     <i class="bi bi-chevron-down chevron"></i>
                 </button>
-                <div class="nav-items">
+                <div class="submenu nav-items">
                     {% for tool in cat.tools %}
-                    <a href="/{{ cat.id }}/{{ tool.id }}" class="nav-item" data-desc="{{ tool.desc | lower }}">
-                        <i class="bi {{ tool.icon }}"></i> {{ tool.name }}
-                    </a>
+                    <div class="submenu-row">
+                        <a href="/{{ cat.id }}/{{ tool.id }}" class="submenu-btn nav-item" data-desc="{{ tool.desc | lower }}">
+                            <span class="menu-label">{{ tool.name }}</span>
+                        </a>
+                    </div>
                     {% endfor %}
                 </div>
             </div>
             {% endfor %}
         </div>
+
         <div class="sidebar-footer">
-            <div class="footer-buttons">
-                <a href="{{ acca_app_url }}" class="footer-btn" title="Kembali ke ACCA">
-                    <i class="bi bi-arrow-left-short"></i><span class="footer-btn-label">ACCA</span>
-                </a>
-                <a href="{{ acca_app_url }}/api/sso/cbt" target="_blank" rel="noopener" class="footer-btn" title="Buka ACCA CBT">
-                    <i class="bi bi-pencil-square"></i><span class="footer-btn-label">CBT</span>
-                </a>
-            </div>
             <button class="about-btn" onclick="openAboutModal()" title="Tentang ACCA - TOOLS">
                 <i class="bi bi-info-circle"></i> Tentang ACCA - TOOLS
             </button>
         </div>
     </nav>
 
-    <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+    <div class="sidebar-overlay overlay" id="overlay" onclick="closeSidebar()"></div>
 
     <main class="main-content">
         <header class="top-bar">
-            <button class="menu-btn" onclick="openSidebar()"><i class="bi bi-list"></i></button>
+            <button class="topbar-menu-btn menu-btn" onclick="openSidebar()" aria-label="Open menu"><i class="bi bi-list"></i></button>
             <span class="top-title">MAN Insan Cendekia Gowa</span>
             <div class="global-search" id="global-search">
                 <input type="text" id="global-search-input" placeholder="Search tools..." autocomplete="off" aria-label="Search tools" aria-expanded="false" aria-controls="global-search-dropdown">
