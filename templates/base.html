@@ -13,7 +13,11 @@
             document.documentElement.dataset.theme = resolved;
         })();
     </script>
-    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='icon.svg') }}?v={{ asset_version }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/logo-sidebar-kecil.png') }}?v={{ asset_version }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v={{ asset_version }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='icon.svg') }}?v={{ asset_version }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/logo-sidebar-kecil.png') }}?v={{ asset_version }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
