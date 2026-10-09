@@ -219,14 +219,15 @@ _STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 
 def _asset_version():
-    """Cache-bust CSS/JS using their newest mtime, so deploys show instantly."""
+    """Cache-bust CSS/JS/icons using their newest mtime, so deploys show instantly."""
     paths = [
         os.path.join(_STATIC_DIR, "css", "style.css"),
         os.path.join(_STATIC_DIR, "js", "main.js"),
+        os.path.join(_STATIC_DIR, "icon.svg"),
     ]
     try:
-        return str(int(max(os.path.getmtime(p) for p in paths)))
-    except OSError:
+        return str(int(max(os.path.getmtime(p) for p in paths if os.path.exists(p))))
+    except (OSError, ValueError):
         return "1"
 
 
@@ -247,7 +248,7 @@ def index():
 
 @app.route("/favicon.ico")
 def favicon():
-    return send_from_directory(_STATIC_DIR, "favicon.ico", mimetype="image/vnd.microsoft.icon")
+    return send_from_directory(_STATIC_DIR, "icon.svg", mimetype="image/svg+xml")
 
 
 @app.errorhandler(413)
