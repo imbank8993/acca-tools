@@ -1,17 +1,12 @@
 import importlib.util
 import io
+import os
 import re
 import zipfile
-import os
-import json
-import base64
-import urllib.request
-import urllib.error
 
 from flask import Blueprint, jsonify, render_template, request, send_file
 
 from routes._helpers import NO_FILE_SINGLE, NO_FILE_MULTIPLE, log_error
-from utils.capabilities import QUALITY_HIGH, QUALITY_UNAVAILABLE
 from utils.pymupdf import import_pymupdf
 
 bp = Blueprint("acca_plus", __name__)
@@ -38,6 +33,20 @@ def _get_model():
 
         _latex_ocr_model = LatexOCR()
     return _latex_ocr_model
+
+
+def _unique_name(name: str, used_names: set[str]) -> str:
+    """Ensure filename is unique within a zip archive to prevent overwrites."""
+    if name not in used_names:
+        used_names.add(name)
+        return name
+    stem, ext = os.path.splitext(name)
+    counter = 1
+    while f"{stem}_{counter}{ext}" in used_names:
+        counter += 1
+    unique = f"{stem}_{counter}{ext}"
+    used_names.add(unique)
+    return unique
 
 
 # ---------------------------------------------------------------------------
@@ -81,10 +90,18 @@ def latex_ocr():
     if not files or not files[0].filename:
         return jsonify(error=NO_FILE_SINGLE), 400
 
-    from PIL import Image  # noqa: PLC0415
+    from PIL import Image, ImageOps  # noqa: PLC0415
 
     try:
-        img = Image.open(io.BytesIO(files[0].read())).convert("RGB")
+        raw_img = Image.open(io.BytesIO(files[0].read()))
+        raw_img = ImageOps.exif_transpose(raw_img)
+        if raw_img.mode in ("RGBA", "LA", "P"):
+            bg = Image.new("RGB", raw_img.size, (255, 255, 255))
+            rgba = raw_img.convert("RGBA")
+            bg.paste(rgba, mask=rgba.split()[3])
+            img = bg
+        else:
+            img = raw_img.convert("RGB")
     except Exception as e:
         log_error(e, "latex_ocr.open")
         return jsonify(error="Failed to open image. Make sure the file is a valid image."), 400
@@ -187,6 +204,7 @@ def rename_pdf():
 
     zip_buf = io.BytesIO()
     log_lines: list[str] = []
+    used_names: set[str] = set()
     processed = 0
 
     with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -197,6 +215,8 @@ def rename_pdf():
 
             try:
                 data = upload.read()
+                if not data:
+                    raise ValueError("Uploaded file is empty.")
                 doc = fitz.open(stream=data, filetype="pdf")
 
                 pages_to_scan = min(3, doc.page_count)
@@ -236,12 +256,11 @@ def rename_pdf():
             except Exception as e:
                 log_error(e, f"rename_pdf.{original_filename}")
                 new_name = original_filename
-                if not data:
-                    data = upload.read()
                 status = f"ERROR: {e}"
 
-            zf.writestr(new_name, data)
-            log_lines.append(f"{original_filename}  →  {new_name}  [{status}]")
+            unique_new_name = _unique_name(new_name, used_names)
+            zf.writestr(unique_new_name, data)
+            log_lines.append(f"{original_filename}  →  {unique_new_name}  [{status}]")
             processed += 1
 
         zf.writestr("_rename_log.txt", "\n".join(log_lines).encode("utf-8"))
@@ -565,33 +584,32 @@ def compress_pdf_target():
 def _compress_image_to_target(img_data: bytes, target_bytes: int) -> tuple[bytes, int, bool]:
     """
     Binary-search JPEG compression settings to hit target_bytes for a single image.
+    Ensures output is always a valid JPEG, respects EXIF orientation, and
+    neatly composites transparent images on a white background.
     Returns (best_data, achieved_size, target_met).
     """
-    from PIL import Image as PILImage
-    original_size = len(img_data)
-    if original_size <= target_bytes:
-        return img_data, original_size, True
+    from PIL import Image as PILImage, ImageOps
+
+    if not img_data:
+        raise ValueError("Image file is empty.")
 
     try:
-        pil_img = PILImage.open(io.BytesIO(img_data))
-        if pil_img.mode not in ("RGB", "L"):
+        pil_raw = PILImage.open(io.BytesIO(img_data))
+        is_orig_jpeg = (pil_raw.format == "JPEG")
+        pil_img = ImageOps.exif_transpose(pil_raw)
+
+        if pil_img.mode in ("RGBA", "LA", "P"):
+            bg = PILImage.new("RGB", pil_img.size, (255, 255, 255))
+            rgba = pil_img.convert("RGBA")
+            bg.paste(rgba, mask=rgba.split()[3])
+            pil_img = bg
+        elif pil_img.mode not in ("RGB", "L"):
             pil_img = pil_img.convert("RGB")
     except Exception as e:
         raise ValueError(f"Invalid image: {e}")
 
     orig_w, orig_h = pil_img.size
-    best_data = img_data
-    best_size = original_size
-
-    def _update(compressed: bytes) -> None:
-        nonlocal best_data, best_size
-        size = len(compressed)
-        if size <= target_bytes:
-            if best_size > target_bytes or size > best_size:
-                best_data, best_size = compressed, size
-        else:
-            if best_size > target_bytes and size < best_size:
-                best_data, best_size = compressed, size
+    original_size = len(img_data)
 
     def _compress_at(quality: int, scale: float) -> bytes:
         img = pil_img
@@ -602,6 +620,29 @@ def _compress_image_to_target(img_data: bytes, target_bytes: int) -> tuple[bytes
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=quality, optimize=True)
         return buf.getvalue()
+
+    # If the original file was already a JPEG, meets the target, and did not require
+    # EXIF rotation, keep original bytes directly.
+    if is_orig_jpeg and original_size <= target_bytes and pil_raw.size == pil_img.size:
+        return img_data, original_size, True
+
+    # Otherwise, generate initial full-res JPEG representation at high quality
+    init_data = _compress_at(85, 1.0)
+    best_data = init_data
+    best_size = len(init_data)
+
+    if best_size <= target_bytes:
+        return best_data, best_size, True
+
+    def _update(compressed: bytes) -> None:
+        nonlocal best_data, best_size
+        size = len(compressed)
+        if size <= target_bytes:
+            if best_size > target_bytes or size > best_size:
+                best_data, best_size = compressed, size
+        else:
+            if best_size > target_bytes and size < best_size:
+                best_data, best_size = compressed, size
 
     # ── Phase 1: binary-search on JPEG quality (full resolution) ─────────────
     lo_q, hi_q = 5, 85
@@ -622,15 +663,13 @@ def _compress_image_to_target(img_data: bytes, target_bytes: int) -> tuple[bytes
     # ── Phase 2: binary-search on resolution scaling at quality=30 ────────────
     lo_s, hi_s = 0.1, 1.0
     for _ in range(8):
-        if lo_s > hi_s:
-            break
         s = (lo_s + hi_s) / 2.0
         c = _compress_at(30, s)
         _update(c)
         if len(c) <= target_bytes:
-            lo_s = s + 0.05
+            lo_s = s
         else:
-            hi_s = s - 0.05
+            hi_s = s
 
     return best_data, best_size, best_size <= target_bytes
 
@@ -693,6 +732,7 @@ def compress_image_target():
     # If multiple files, return a ZIP
     zip_buf = io.BytesIO()
     log_lines: list[str] = []
+    used_names: set[str] = set()
     processed = 0
 
     with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -703,7 +743,7 @@ def compress_image_target():
             
             try:
                 res_data, achv, met = _compress_image_to_target(data, target_bytes)
-                new_name = f"{stem}_compressed.jpg"
+                new_name = _unique_name(f"{stem}_compressed.jpg", used_names)
                 zf.writestr(new_name, res_data)
                 
                 status = "OK" if met else f"Target not met (achieved {achv} bytes)"
@@ -711,7 +751,8 @@ def compress_image_target():
                 processed += 1
             except Exception as e:
                 log_error(e, f"compress_image.{orig_name}")
-                zf.writestr(orig_name, data)
+                fallback_name = _unique_name(orig_name, used_names)
+                zf.writestr(fallback_name, data)
                 log_lines.append(f"{orig_name} → ERROR: {e} (kept original)")
                 
         zf.writestr("_compression_log.txt", "\n".join(log_lines).encode("utf-8"))

@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% block title %}{{ title }} - ACCA - TOOLS{% endblock %}
-{% block top_title %}{{ title }}{% endblock %}
 
 {% block content %}
 <div class="tool-page">
@@ -30,7 +29,7 @@
 
     <div id="capability-status" class="capability-status" data-endpoint="{{ endpoint }}" style="display:none"></div>
 
-    <form id="tool-form" data-endpoint="{{ endpoint }}">
+    <form id="rename-form" data-endpoint="{{ endpoint }}">
 
         <!-- File Upload Zone -->
         <div class="upload-zone" id="upload-zone">
@@ -42,7 +41,7 @@
                 <small>Accepted: .pdf &mdash; multiple files supported</small>
             </div>
         </div>
-        <div class="file-list" id="file-list"></div>
+        <div class="file-list" id="file-list" style="display:none"></div>
 
         <!-- Selected files preview table -->
         <div id="files-preview" style="display:none;margin:1rem 0">
@@ -137,9 +136,16 @@ const downloadBtn  = document.getElementById('download-btn');
 const resultError  = document.getElementById('result-error');
 const errorMsg     = document.getElementById('error-message');
 
+function getActiveFiles() {
+    if (typeof selectedFiles !== 'undefined' && selectedFiles.length > 0) {
+        return selectedFiles;
+    }
+    return fileInput.files ? Array.from(fileInput.files) : [];
+}
+
 // ── File preview ─────────────────────────────────────────────────────────────
 function updateFilesPreview() {
-    const files = fileInput.files;
+    const files = getActiveFiles();
     if (!files || files.length === 0) {
         filesPreview.style.display = 'none';
         uploadPrompt.querySelector('p').textContent = 'Drag & drop PDF files here';
@@ -149,26 +155,42 @@ function updateFilesPreview() {
     filesPreview.style.display = '';
     fileCountEl.textContent = files.length;
     filesListUl.innerHTML = '';
-    Array.from(files).forEach(f => {
+    files.forEach((f, idx) => {
         const li = document.createElement('li');
         li.style.cssText = 'padding:.25rem 0;border-bottom:1px solid var(--border);display:flex;gap:.5rem;align-items:center';
         li.innerHTML = `<i class="bi bi-file-pdf-fill" style="color:#e74c3c"></i>
             <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(f.name)}</span>
-            <span style="color:var(--muted);font-size:.82em;flex-shrink:0">${formatSize(f.size)}</span>`;
+            <span style="color:var(--muted);font-size:.82em;flex-shrink:0">${formatSize(f.size)}</span>
+            <button type="button" class="remove-file" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:1.1em;padding:0 .25rem" onclick="removeSingleFile(${idx})">&times;</button>`;
         filesListUl.appendChild(li);
     });
     uploadPrompt.querySelector('p').textContent = `${files.length} file(s) selected`;
-    uploadPrompt.querySelector('span').textContent = 'Click to change selection';
+    uploadPrompt.querySelector('span').textContent = 'Click to add more files';
+}
+
+function removeSingleFile(idx) {
+    if (typeof selectedFiles !== 'undefined' && selectedFiles.length > idx) {
+        selectedFiles.splice(idx, 1);
+    }
+    updateFilesPreview();
 }
 
 function clearFiles() {
     fileInput.value = '';
-    filesPreview.style.display = 'none';
-    uploadPrompt.querySelector('p').textContent = 'Drag & drop PDF files here';
-    uploadPrompt.querySelector('span').textContent = 'or click to select multiple files';
+    if (typeof selectedFiles !== 'undefined') {
+        selectedFiles.length = 0;
+    }
+    updateFilesPreview();
 }
 
 fileInput.addEventListener('change', updateFilesPreview);
+
+// Hook into main.js's upload-zone drop & drag events
+const _origRFL = window.renderFileList || function(){};
+window.renderFileList = function() {
+    _origRFL();
+    updateFilesPreview();
+};
 
 function escHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -180,10 +202,10 @@ function formatSize(bytes) {
 }
 
 // ── Form submit ───────────────────────────────────────────────────────────────
-document.getElementById('tool-form').addEventListener('submit', async (e) => {
+document.getElementById('rename-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const files = fileInput.files;
+    const files = getActiveFiles();
     if (!files || files.length === 0) {
         showError('Please select at least one PDF file.');
         return;
@@ -198,6 +220,8 @@ document.getElementById('tool-form').addEventListener('submit', async (e) => {
     submitBtn.disabled = true;
 
     const fd = new FormData(e.target);
+    fd.delete('files');
+    files.forEach(f => fd.append('files', f));
 
     try {
         const res = await fetch(e.target.dataset.endpoint, { method: 'POST', body: fd });
@@ -212,7 +236,7 @@ document.getElementById('tool-form').addEventListener('submit', async (e) => {
         const ct = res.headers.get('Content-Type') || '';
         if (ct.includes('application/json')) {
             const d = await res.json();
-            showError(d.error || 'Terjadi kesalahan tak terduga.');
+            showError(d.error || 'An unexpected error occurred.');
             return;
         }
 
@@ -220,8 +244,8 @@ document.getElementById('tool-form').addEventListener('submit', async (e) => {
         const url  = URL.createObjectURL(blob);
 
         const cd = res.headers.get('Content-Disposition') || '';
-        const fnMatch = cd.match(/filename[^;=\n]*=([^;\n]*)/i);
-        const filename = fnMatch ? fnMatch[1].replace(/['"]/g, '').trim() : 'renamed_pdfs.zip';
+        const fnMatch = cd.match(/filename="?([^";\n]+)"?/);
+        const filename = fnMatch ? fnMatch[1].trim() : 'renamed_pdfs.zip';
 
         downloadBtn.href = url;
         downloadBtn.download = filename;

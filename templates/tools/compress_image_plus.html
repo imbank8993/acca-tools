@@ -50,7 +50,7 @@
                 <label for="target-size-input">Target File Size (per image)</label>
                 <div style="display:flex;gap:.5rem;align-items:center">
                     <input type="number" id="target-size-input" name="target_size"
-                           min="1" step="any" placeholder="e.g. 200"
+                           min="0.01" step="any" placeholder="e.g. 200"
                            style="flex:1;max-width:180px">
                     <select id="target-unit" name="target_unit" style="width:80px">
                         <option value="KB" selected>KB</option>
@@ -230,8 +230,8 @@ form.addEventListener('submit', async (e) => {
         const blob     = await res.blob();
         const url      = URL.createObjectURL(blob);
         const disp     = res.headers.get('Content-Disposition') || '';
-        const nameMatch = disp.match(/filename="?([^"]+)"?/);
-        const fileName  = nameMatch ? nameMatch[1] : (isZip ? 'compressed_images.zip' : 'compressed.jpg');
+        const nameMatch = disp.match(/filename="?([^";\n]+)"?/);
+        const fileName  = nameMatch ? nameMatch[1].trim() : (isZip ? 'compressed_images.zip' : 'compressed.jpg');
 
         downloadBtn.href     = url;
         downloadBtn.download = fileName;
