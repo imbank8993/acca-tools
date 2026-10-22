@@ -13,14 +13,15 @@ When SSO is disabled (no secret — e.g. local development) the gate is a no-op
 and the app behaves exactly as the upstream open-source project.
 """
 import time
+from urllib.parse import urlsplit
 
 import jwt
-from flask import Blueprint, current_app, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, jsonify, make_response, redirect, render_template, request, session, url_for
 
 bp = Blueprint("auth", __name__)
 
 # Paths that must stay reachable without a session.
-_OPEN_PATHS = {"/auth/sso", "/auth/denied", "/logout"}
+_OPEN_PATHS = {"/auth/sso", "/auth/denied", "/auth/single-logout", "/logout"}
 _OPEN_PREFIXES = ("/static/",)
 
 
@@ -96,3 +97,24 @@ def logout():
     single logout there also ends the ACCA TOOLS session immediately."""
     session.clear()
     return redirect(f"{current_app.config['ACCA_APP_URL']}/login")
+
+
+@bp.route("/auth/single-logout", methods=["POST", "OPTIONS"])
+def single_logout():
+    """Only ACCA's exact browser origin may clear the current Tools session."""
+    configured = urlsplit(current_app.config["ACCA_APP_URL"])
+    expected = f"{configured.scheme}://{configured.netloc}"
+    origin = request.headers.get("Origin", "")
+    if origin != expected:
+        return jsonify(ok=False, error="Origin tidak diizinkan."), 403
+    if request.method == "OPTIONS":
+        response = make_response("", 204)
+    else:
+        session.clear()
+        response = make_response(jsonify(ok=True))
+    response.headers["Access-Control-Allow-Origin"] = origin
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["Vary"] = "Origin"
+    return response
