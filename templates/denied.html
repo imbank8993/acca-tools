@@ -13,7 +13,7 @@
             document.documentElement.dataset.theme = resolved;
         })();
     </script>
-    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo-icon.png') }}?v={{ asset_version }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/icons.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
@@ -56,7 +56,7 @@
 </head>
 <body>
     <div class="denied-card">
-        <img src="{{ url_for('static', filename='images/acca-logo.png') }}" alt="ACCA" class="denied-logo">
+        <img src="{{ url_for('static', filename='images/logo-sidebar.png') }}" alt="ACCA" class="denied-logo">
         <i class="bi bi-shield-lock-fill denied-icon"></i>
         <h1>Anda tidak memiliki akses</h1>
         <p>Harap login terlebih dahulu di <strong>ACCA</strong> untuk membuka ACCA - TOOLS.</p>
