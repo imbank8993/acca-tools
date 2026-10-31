@@ -577,97 +577,169 @@ def compress_pdf_download(token):
 # Compress Image to Target Size
 # ---------------------------------------------------------------------------
 
-def _compress_image_to_target(img_data: bytes, target_bytes: int) -> tuple[bytes, int, bool]:
+def _compress_image_to_target(img_data: bytes, target_bytes: int) -> tuple[bytes, int, bool, str, str]:
     """
-    Binary-search JPEG compression settings to hit target_bytes for a single image.
-    Ensures output is always a valid JPEG, respects EXIF orientation, and
-    neatly composites transparent images on a white background.
-    Returns (best_data, achieved_size, target_met).
+    Binary-search compression settings to hit target_bytes for a single image.
+    Preserves alpha transparency (using PNG or WebP) when the input has transparency,
+    instead of replacing it with a solid white background.
+    Opaque images are compressed to JPEG.
+    Returns (best_data, achieved_size, target_met, extension, mimetype).
     """
     from PIL import Image as PILImage, ImageOps
 
     if not img_data:
         raise ValueError("Image file is empty.")
+    if target_bytes <= 0:
+        raise ValueError("Target size must be greater than 0.")
 
     try:
         pil_raw = PILImage.open(io.BytesIO(img_data))
-        is_orig_jpeg = (pil_raw.format == "JPEG")
+        orig_fmt = (pil_raw.format or "JPEG").upper()
         pil_img = ImageOps.exif_transpose(pil_raw)
-
-        if pil_img.mode in ("RGBA", "LA", "P"):
-            bg = PILImage.new("RGB", pil_img.size, (255, 255, 255))
-            rgba = pil_img.convert("RGBA")
-            bg.paste(rgba, mask=rgba.split()[3])
-            pil_img = bg
-        elif pil_img.mode not in ("RGB", "L"):
-            pil_img = pil_img.convert("RGB")
     except Exception as e:
         raise ValueError(f"Invalid image: {e}")
 
-    orig_w, orig_h = pil_img.size
-    original_size = len(img_data)
+    def _fmt_info(fmt: str) -> tuple[str, str]:
+        if fmt == "PNG":
+            return ".png", "image/png"
+        elif fmt == "WEBP":
+            return ".webp", "image/webp"
+        elif fmt == "BMP":
+            return ".bmp", "image/bmp"
+        return ".jpg", "image/jpeg"
 
-    def _compress_at(quality: int, scale: float) -> bytes:
+    original_size = len(img_data)
+    orig_ext, orig_mime = _fmt_info(orig_fmt)
+
+    # Detect transparency (alpha channel)
+    has_alpha = False
+    if pil_img.mode in ("RGBA", "LA"):
+        alpha = pil_img.getchannel("A")
+        if alpha.getextrema()[0] < 255:
+            has_alpha = True
+        else:
+            pil_img = pil_img.convert("RGB")
+    elif pil_img.mode == "P":
+        if "transparency" in pil_img.info:
+            has_alpha = True
+            pil_img = pil_img.convert("RGBA")
+        else:
+            pil_img = pil_img.convert("RGB")
+    elif pil_img.mode not in ("RGB", "L"):
+        pil_img = pil_img.convert("RGB")
+
+    # If original file already meets target and didn't need rotation, preserve directly
+    if original_size <= target_bytes and pil_raw.size == pil_img.size:
+        return img_data, original_size, True, orig_ext, orig_mime
+
+    orig_w, orig_h = pil_img.size
+
+    def _render(fmt: str, quality: int, scale: float) -> bytes:
         img = pil_img
         if scale < 1.0:
             w = max(1, int(orig_w * scale))
             h = max(1, int(orig_h * scale))
             img = pil_img.resize((w, h), PILImage.LANCZOS)
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=quality, optimize=True)
+        if fmt == "JPEG":
+            if img.mode in ("RGBA", "LA", "P"):
+                bg = PILImage.new("RGB", img.size, (255, 255, 255))
+                rgba = img.convert("RGBA")
+                bg.paste(rgba, mask=rgba.split()[3])
+                img = bg
+            elif img.mode not in ("RGB", "L"):
+                img = img.convert("RGB")
+            img.save(buf, format="JPEG", quality=quality, optimize=True)
+        elif fmt == "WEBP":
+            img.save(buf, format="WEBP", quality=quality)
+        elif fmt == "PNG":
+            img.save(buf, format="PNG", optimize=True)
         return buf.getvalue()
 
-    # If the original file was already a JPEG, meets the target, and did not require
-    # EXIF rotation, keep original bytes directly.
-    if is_orig_jpeg and original_size <= target_bytes and pil_raw.size == pil_img.size:
-        return img_data, original_size, True
+    best_data = b""
+    best_size = float("inf")
+    best_ext = ".jpg"
+    best_mime = "image/jpeg"
 
-    # Otherwise, generate initial full-res JPEG representation at high quality
-    init_data = _compress_at(85, 1.0)
-    best_data = init_data
-    best_size = len(init_data)
-
-    if best_size <= target_bytes:
-        return best_data, best_size, True
-
-    def _update(compressed: bytes) -> None:
-        nonlocal best_data, best_size
-        size = len(compressed)
+    def _update(data: bytes, ext: str, mime: str) -> None:
+        nonlocal best_data, best_size, best_ext, best_mime
+        size = len(data)
         if size <= target_bytes:
             if best_size > target_bytes or size > best_size:
-                best_data, best_size = compressed, size
+                best_data, best_size, best_ext, best_mime = data, size, ext, mime
         else:
             if best_size > target_bytes and size < best_size:
-                best_data, best_size = compressed, size
+                best_data, best_size, best_ext, best_mime = data, size, ext, mime
 
-    # ── Phase 1: binary-search on JPEG quality (full resolution) ─────────────
-    lo_q, hi_q = 5, 85
-    for _ in range(12):
-        if lo_q > hi_q:
-            break
-        q = (lo_q + hi_q) // 2
-        c = _compress_at(q, 1.0)
-        _update(c)
-        if len(c) <= target_bytes:
-            lo_q = q + 1
-        else:
-            hi_q = q - 1
+    if has_alpha:
+        # 1. Try lossless PNG first
+        png_data = _render("PNG", 0, 1.0)
+        _update(png_data, ".png", "image/png")
+        if best_size <= target_bytes:
+            return best_data, best_size, True, best_ext, best_mime
 
-    if best_size <= target_bytes:
-        return best_data, best_size, True
+        # 2. Use WebP for lossy compression with alpha preservation
+        lo_q, hi_q = 10, 90
+        for _ in range(8):
+            if lo_q > hi_q:
+                break
+            q = (lo_q + hi_q) // 2
+            c = _render("WEBP", q, 1.0)
+            _update(c, ".webp", "image/webp")
+            if len(c) <= target_bytes:
+                lo_q = q + 1
+            else:
+                hi_q = q - 1
 
-    # ── Phase 2: binary-search on resolution scaling at quality=30 ────────────
-    lo_s, hi_s = 0.1, 1.0
-    for _ in range(8):
-        s = (lo_s + hi_s) / 2.0
-        c = _compress_at(30, s)
-        _update(c)
-        if len(c) <= target_bytes:
-            lo_s = s
-        else:
-            hi_s = s
+        if best_size <= target_bytes:
+            return best_data, best_size, True, best_ext, best_mime
 
-    return best_data, best_size, best_size <= target_bytes
+        # Binary search scale at quality 40
+        lo_s, hi_s = 0.1, 1.0
+        for _ in range(8):
+            s = (lo_s + hi_s) / 2.0
+            c = _render("WEBP", 40, s)
+            _update(c, ".webp", "image/webp")
+            if len(c) <= target_bytes:
+                lo_s = s
+            else:
+                hi_s = s
+
+        return best_data, best_size, best_size <= target_bytes, best_ext, best_mime
+
+    else:
+        # Opaque image -> JPEG
+        init_data = _render("JPEG", 85, 1.0)
+        _update(init_data, ".jpg", "image/jpeg")
+        if best_size <= target_bytes:
+            return best_data, best_size, True, best_ext, best_mime
+
+        lo_q, hi_q = 5, 85
+        for _ in range(12):
+            if lo_q > hi_q:
+                break
+            q = (lo_q + hi_q) // 2
+            c = _render("JPEG", q, 1.0)
+            _update(c, ".jpg", "image/jpeg")
+            if len(c) <= target_bytes:
+                lo_q = q + 1
+            else:
+                hi_q = q - 1
+
+        if best_size <= target_bytes:
+            return best_data, best_size, True, best_ext, best_mime
+
+        lo_s, hi_s = 0.1, 1.0
+        for _ in range(8):
+            s = (lo_s + hi_s) / 2.0
+            c = _render("JPEG", 30, s)
+            _update(c, ".jpg", "image/jpeg")
+            if len(c) <= target_bytes:
+                lo_s = s
+            else:
+                hi_s = s
+
+        return best_data, best_size, best_size <= target_bytes, best_ext, best_mime
 
 
 @bp.route("/compress-image")
@@ -705,7 +777,7 @@ def compress_image_target():
         data = upload.read()
         
         try:
-            res_data, achv, met = _compress_image_to_target(data, target_bytes)
+            res_data, achv, met, ext, mime = _compress_image_to_target(data, target_bytes)
         except Exception as e:
             log_error(e, f"compress_image.{original_name}")
             return jsonify(error=f"Failed to compress image: {e}"), 400
@@ -714,9 +786,9 @@ def compress_image_target():
         out_buf.seek(0)
         resp = send_file(
             out_buf,
-            mimetype="image/jpeg",
+            mimetype=mime,
             as_attachment=True,
-            download_name=f"{stem}_compressed.jpg",
+            download_name=f"{stem}_compressed{ext}",
         )
         resp.headers["X-Original-Size"] = str(len(data))
         resp.headers["X-Achieved-Size"] = str(achv)
@@ -738,8 +810,8 @@ def compress_image_target():
             data = upload.read()
             
             try:
-                res_data, achv, met = _compress_image_to_target(data, target_bytes)
-                new_name = _unique_name(f"{stem}_compressed.jpg", used_names)
+                res_data, achv, met, ext, mime = _compress_image_to_target(data, target_bytes)
+                new_name = _unique_name(f"{stem}_compressed{ext}", used_names)
                 zf.writestr(new_name, res_data)
                 
                 status = "OK" if met else f"Target not met (achieved {achv} bytes)"
