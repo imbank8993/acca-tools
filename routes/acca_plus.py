@@ -744,11 +744,8 @@ def _split_student_pdf_to_zip(
 def split_pdf_page():
     return render_template(
         "tools/split_student_pdf.html",
-        title="Split by Profile / Student",
-        description=(
-            "Pecah file PDF gabungan (Rapor, Kartu Ujian, SKP Guru, Slip Gaji, SK Dinas) "
-            "menjadi file PDF terpisah secara otomatis berdasarkan profil Siswa (NISN), Guru (NIP), atau Label Kustom."
-        ),
+        title="Split Document",
+        description="Pecah dokumen PDF gabungan secara otomatis berdasarkan profil Siswa, Guru, atau Label Kustom.",
         endpoint="/acca-plus/split-pdf",
         accept=".pdf",
     )
@@ -1056,10 +1053,7 @@ def certificate_generator_page():
     return render_template(
         "tools/certificate_generator.html",
         title="Certificate Generator",
-        description=(
-            "Buat puluhan hingga ratusan piagam atau sertifikat secara masal dari template PDF/Gambar "
-            "dan data spreadsheet Excel/CSV, lengkap dengan QR Code verifikasi keaslian."
-        ),
+        description="Buat sertifikat atau piagam secara masal dari template dan data Excel/CSV.",
         endpoint="/acca-plus/certificate-generator",
     )
 

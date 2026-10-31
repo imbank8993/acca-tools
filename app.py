@@ -28,12 +28,12 @@ TOOL_CATEGORIES = [
         "name": "ACCA Plus",
         "icon": "bi-stars",
         "tools": [
-            {"id": "latex-ocr", "name": "Formula to LaTeX", "desc": "Convert formula image to LaTeX code", "icon": "bi-calculator-fill"},
-            {"id": "rename-pdf", "name": "Rename PDFs", "desc": "Bulk rename PDFs using NISN & student name from content", "icon": "bi-tag-fill"},
-            {"id": "split-pdf", "name": "Split Document", "desc": "Split bulk PDF by Student (NISN), Teacher (NIP), or Custom Label", "icon": "bi-person-lines-fill"},
-            {"id": "certificate-generator", "name": "Certificate Generator", "desc": "Bulk generate certificates from Excel & template with QR verification", "icon": "bi-award-fill"},
-            {"id": "compress-pdf", "name": "Compress PDF", "desc": "Reduce PDF to a specific target file size", "icon": "bi-file-zip-fill"},
-            {"id": "compress-image", "name": "Compress Image", "desc": "Reduce images to a specific target file size", "icon": "bi-file-image-fill"},
+            {"id": "latex-ocr", "name": "Formula to LaTeX", "desc": "Convert formula to LaTeX", "icon": "bi-calculator-fill"},
+            {"id": "rename-pdf", "name": "Rename PDFs", "desc": "Rename by NISN & student name", "icon": "bi-tag-fill"},
+            {"id": "split-pdf", "name": "Split Document", "desc": "Split PDF by student or teacher", "icon": "bi-person-lines-fill"},
+            {"id": "certificate-generator", "name": "Certificate Generator", "desc": "Generate certificates from Excel", "icon": "bi-award-fill"},
+            {"id": "compress-pdf", "name": "Compress PDF", "desc": "Reduce PDF to target size", "icon": "bi-file-zip-fill"},
+            {"id": "compress-image", "name": "Compress Image", "desc": "Reduce image to target size", "icon": "bi-file-image-fill"},
         ],
     },
     {
