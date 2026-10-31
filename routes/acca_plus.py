@@ -1,10 +1,12 @@
 import importlib.util
 import io
+import json
 import os
 import re
 import zipfile
+import tempfile
 
-from flask import Blueprint, jsonify, render_template, request, send_file
+from flask import Blueprint, jsonify, render_template, request, send_file, url_for
 
 from routes._helpers import NO_FILE_SINGLE, NO_FILE_MULTIPLE, log_error
 from utils.pymupdf import import_pymupdf
@@ -346,7 +348,10 @@ def _compress_pdf_at(data: bytes, jpeg_quality: int, max_dim: int) -> bytes:
                         buf = io.BytesIO()
                         pil.save(buf, format="JPEG", quality=jpeg_quality, optimize=True)
 
-                    page.replace_image(xref, stream=buf.getvalue())
+                    # Keep small original streams (e.g. line art) when JPEG
+                    # would increase their size.
+                    if len(buf.getvalue()) < len(doc.xref_stream_raw(xref) or b""):
+                        page.replace_image(xref, stream=buf.getvalue())
                 except Exception as e:
                     log_error(e, f"_compress_pdf_at xref={xref}")
                     continue
@@ -374,14 +379,17 @@ def _compress_with_pikepdf(data: bytes) -> bytes:
         return data
 
 
-def _render_pdf_at(doc, zoom: float, jpeg_quality: int) -> bytes:
+def _render_pdf_at(doc, zoom: float, jpeg_quality: int, cached_pages=None) -> bytes:
     """Renders all pages of a PDF to JPEG images and builds a new PDF."""
     mat = fitz.Matrix(zoom, zoom)
     new_doc = fitz.open()
     try:
-        for page in doc:
-            pix = page.get_pixmap(matrix=mat, alpha=False, colorspace=fitz.csRGB)
-            img_bytes = pix.tobytes("jpeg", jpeg_quality)
+        for index, page in enumerate(doc):
+            if cached_pages is None:
+                pix = page.get_pixmap(matrix=mat, alpha=False, colorspace=fitz.csRGB)
+            else:
+                pix = fitz.Pixmap(cached_pages[index])
+            img_bytes = pix.tobytes("jpeg", jpg_quality=jpeg_quality)
             
             rect = page.rect
             new_page = new_doc.new_page(width=rect.width, height=rect.height)
@@ -394,10 +402,26 @@ def _render_pdf_at(doc, zoom: float, jpeg_quality: int) -> bytes:
         new_doc.close()
 
 
-def _compress_to_target(data: bytes, target_bytes: int, force_render: bool = False) -> tuple[bytes, int, bool]:
+def _lossless_pdf(data: bytes) -> bytes:
+    """Optimize objects/fonts without rasterizing text or re-encoding images."""
+    try:
+        with fitz.open(stream=data, filetype="pdf") as doc:
+            doc.subset_fonts()
+            optimized = doc.tobytes(garbage=4, deflate=True, deflate_images=True,
+                                   deflate_fonts=True)
+    except Exception as e:
+        log_error(e, "lossless_pdf")
+        optimized = data
+    candidates = [data, optimized, _compress_with_pikepdf(optimized)]
+    return min(candidates, key=len)
+
+
+def _compress_to_target(data: bytes, target_bytes: int, force_render: bool = False,
+                        lossless: bool = False) -> tuple[bytes, int, bool]:
     """
     Binary-search compression settings to reach target_bytes.
-    Phase 0: pikepdf lossless compression (if installed).
+    Phase 0: lossless object/font optimization, plus optional pikepdf.
+    Stop here when lossless=True, even if the target cannot be reached.
     Phase 1: binary-search JPEG quality (5-85), full image resolution.
     Phase 2: if target still not met, binary-search max image dimension (200-1800px) at quality=30.
     Phase 3: (Optional) if force_render=True, convert pages to images and binary search resolution.
@@ -422,19 +446,23 @@ def _compress_to_target(data: bytes, target_bytes: int, force_render: bool = Fal
                 best_data, best_size = compressed, size
 
     # ── Phase 0: pikepdf lossless compression ─────────────
-    data_pike = _compress_with_pikepdf(data)
+    data_pike = _lossless_pdf(data)
     _update(data_pike)
-    if best_size <= target_bytes:
-        return best_data, best_size, True
+    if lossless or best_size <= target_bytes:
+        return best_data, best_size, best_size <= target_bytes
 
     # Use data_pike as the base for further raster compression to stack savings
     # if it actually reduced the size.
     if len(data_pike) < len(data):
         data = data_pike
 
+    # Vector-only PDFs cannot benefit from JPEG searches.
+    with fitz.open(stream=data, filetype="pdf") as probe:
+        has_images = any(page.get_images() for page in probe)
+
     # ── Phase 1: binary-search on JPEG quality (full resolution) ─────────────
     lo_q, hi_q = 5, 85
-    for _ in range(12):
+    for _ in range(7 if has_images else 0):
         if lo_q > hi_q:
             break
         q = (lo_q + hi_q) // 2
@@ -450,7 +478,7 @@ def _compress_to_target(data: bytes, target_bytes: int, force_render: bool = Fal
 
     # ── Phase 2: binary-search on max image dimension at quality=30 ───────────
     lo_d, hi_d = 200, 1800
-    for _ in range(8):
+    for _ in range(8 if has_images else 0):
         if lo_d > hi_d:
             break
         d = (lo_d + hi_d) // 2
@@ -463,34 +491,48 @@ def _compress_to_target(data: bytes, target_bytes: int, force_render: bool = Fal
 
     # ── Phase 3: Force render to image if target not met and force_render=True ──
     if force_render and best_size > target_bytes:
+        doc_render = None
         try:
             doc_render = fitz.open(stream=data, filetype="pdf")
             # We want the highest zoom that fits. 
             # Zoom levels: 2.0 (High), 1.5 (Med), 1.0 (Low), 0.75 (Very Low).
             # We binary search JPEG quality (20 - 80) for each zoom level.
-            for z in [2.0, 1.5, 1.0, 0.75]:
-                lo_q, hi_q = 20, 80
-                found_at_this_zoom = False
-                for _ in range(6):
-                    if lo_q > hi_q:
-                        break
-                    q = (lo_q + hi_q) // 2
-                    c = _render_pdf_at(doc_render, z, q)
-                    _update(c)
-                    if len(c) <= target_bytes:
-                        found_at_this_zoom = True
-                        lo_q = q + 1
-                    else:
-                        hi_q = q - 1
+            for z in [2.0, 1.5, 1.0, 0.75, 0.5, 0.35, 0.25]:
+                # Cache a single rendered page at a time on disk. Quality trials
+                # reuse pixels instead of repeatedly rendering the source PDF.
+                with tempfile.TemporaryDirectory(prefix="acca-render-") as cache:
+                    cached_pages = []
+                    for index, page in enumerate(doc_render):
+                        path = os.path.join(cache, f"{index}.png")
+                        # Bound pixel allocation even for oversized page boxes.
+                        zoom = min(z, 4000 / max(page.rect.width, page.rect.height))
+                        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+                        pix.save(path)
+                        cached_pages.append(path)
+                    lo_q, hi_q = 20, 80
+                    found_at_this_zoom = False
+                    for _ in range(6):
+                        if lo_q > hi_q:
+                            break
+                        q = (lo_q + hi_q) // 2
+                        c = _render_pdf_at(doc_render, z, q, cached_pages)
+                        _update(c)
+                        if len(c) <= target_bytes:
+                            found_at_this_zoom = True
+                            lo_q = q + 1
+                        else:
+                            hi_q = q - 1
                 
                 # If we found a configuration at this high zoom that fits the target, 
                 # we don't need to drop to a lower, blurrier zoom level!
                 if found_at_this_zoom:
                     break
                     
-            doc_render.close()
         except Exception as e:
             log_error(e, "_compress_to_target phase 3")
+        finally:
+            if doc_render is not None:
+                doc_render.close()
 
     return best_data, best_size, best_size <= target_bytes
 
@@ -523,11 +565,17 @@ def compress_pdf_target():
         target_value = float(request.form.get("target_size", "0") or "0")
         target_unit = (request.form.get("target_unit", "KB") or "KB").upper()
         target_bytes = int(target_value * (1024 * 1024 if target_unit == "MB" else 1024))
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, OverflowError):
         return jsonify(error="Invalid target size value."), 400
 
     if target_bytes <= 0:
         return jsonify(error="Target size must be greater than 0."), 400
+
+    mode = request.form.get("mode") or ("render" if request.form.get("force_render") == "1" else "lossless")
+    if mode not in ("lossless", "balanced", "render"):
+        return jsonify(error="Invalid compression mode."), 400
+    if target_unit not in ("KB", "MB"):
+        return jsonify(error="Invalid target size unit."), 400
 
     upload = files[0]
     stem = os.path.splitext(upload.filename or "document.pdf")[0]
@@ -543,16 +591,29 @@ def compress_pdf_target():
 
     try:
         chk = fitz.open(stream=data, filetype="pdf")
+        if chk.needs_pass or chk.page_count == 0:
+            chk.close()
+            return jsonify(error="Please upload a non-empty, unlocked PDF."), 400
         chk.close()
     except Exception:
         return jsonify(error="Could not open PDF. File may be corrupted or encrypted."), 400
 
     original_size = len(data)
 
-    force_render = request.form.get("force_render") == "1"
+    if request.form.get("async") == "1":
+        from utils.pdf_jobs import start_job
+        try:
+            token = start_job(data, target_bytes, mode, f"{stem}_compressed.pdf")
+        except RuntimeError as e:
+            return jsonify(error=str(e)), 503
+        except Exception as e:
+            log_error(e, "compress_pdf_target.start")
+            return jsonify(error="Unable to start PDF compression. Please retry."), 500
+        return jsonify(status_url=url_for("acca_plus.compress_pdf_status", token=token)), 202
 
     try:
-        result_data, achieved_size, target_met = _compress_to_target(data, target_bytes, force_render=force_render)
+        result_data, achieved_size, target_met = _compress_to_target(
+            data, target_bytes, force_render=mode == "render", lossless=mode == "lossless")
     except Exception as e:
         log_error(e, "compress_pdf_target.process")
         return jsonify(error=f"Compression failed: {e}"), 500
@@ -575,6 +636,40 @@ def compress_pdf_target():
         "X-Original-Size, X-Achieved-Size, X-Target-Size, X-Target-Met"
     )
     return resp
+
+
+@bp.route("/compress-pdf/jobs/<token>")
+def compress_pdf_status(token):
+    from utils.pdf_jobs import status
+    result = status(token)
+    if result is None:
+        return jsonify(error="Compression result expired or was not found."), 404
+    if result["state"] == "done":
+        result["download_url"] = url_for("acca_plus.compress_pdf_download", token=token)
+    response = jsonify(result)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@bp.route("/compress-pdf/jobs/<token>/download")
+def compress_pdf_download(token):
+    from utils.pdf_jobs import job_path, status
+    result = status(token)
+    if result is None:
+        return jsonify(error="Compression result expired or was not found."), 404
+    if result["state"] != "done":
+        return jsonify(error="Compression is not complete."), 409
+    path = job_path(token)
+    settings = json.loads((path / "settings.json").read_text(encoding="utf-8"))
+    response = send_file(path / "output.pdf", mimetype="application/pdf",
+                         as_attachment=True, download_name=settings["filename"])
+    for name, value in {"Original-Size": settings["original"],
+                        "Achieved-Size": result["achieved"],
+                        "Target-Size": settings["target"],
+                        "Target-Met": int(result["target_met"])}.items():
+        response.headers[f"X-{name}"] = str(value)
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 # ---------------------------------------------------------------------------

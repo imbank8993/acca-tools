@@ -11,15 +11,14 @@
     <div class="tool-notes">
         <p>
             <strong>How it works:</strong>
-            The tool runs a smart binary search — trying different JPEG quality levels (and
-            image dimensions if needed) to find the smallest file that stays as close to
-            your target as possible. Works best on PDFs that contain images or photos.
+            Lossless mode preserves visual quality and selectable text. Other modes
+            search image quality and resolution for the best result within your size limit.
         </p>
         <p style="font-size:.9em;color:var(--muted)">
             <i class="bi bi-info-circle"></i>
             Text-only PDFs have limited compressibility. The achieved size may be larger
             than the target if the PDF cannot be compressed further without data loss.
-            Processing time scales with file size — large PDFs may take up to 30 seconds.
+            Processing runs in the background for up to 5 minutes. Results expire after one hour.
         </p>
     </div>
 
@@ -62,18 +61,20 @@
                     </select>
                 </div>
                 <small style="color:var(--muted);margin-top:.3rem;display:block">
-                    Enter the size you want the output PDF to be approximately.
+                    Maximum desired size (1 KB = 1024 bytes). The result may be smaller.
                 </small>
             </div>
             
             <div class="form-group option-group" style="margin-top:1rem">
-                <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
-                    <input type="checkbox" id="force-render-input" name="force_render" value="1">
-                    <strong>Force Compress (Render to Image)</strong>
-                </label>
+                <label for="compression-mode"><strong>Compression mode</strong></label>
+                <select id="compression-mode" name="mode">
+                    <option value="lossless" selected>Lossless — preserve quality</option>
+                    <option value="balanced">Compress images — keep selectable text</option>
+                    <option value="render">Aggressive — render pages as images</option>
+                </select>
                 <small style="color:var(--muted);display:block;margin-top:.3rem;margin-left:1.5rem">
-                    Check this to force the PDF to reach the exact target size by rendering all pages as images. 
-                    <span style="color:#e74c3c">Warning:</span> Text will become unselectable.
+                    Only lossless mode preserves quality. Aggressive mode can blur small text
+                    and removes selectable text, links, and forms. No mode can guarantee every size target.
                 </small>
             </div>
         </div>
@@ -230,12 +231,26 @@ form.addEventListener('submit', async (e) => {
         fd.append('target_size', targetVal);
         fd.append('target_unit', targetUnit);
         
-        const forceRender = document.getElementById('force-render-input').checked;
-        if (forceRender) {
-            fd.append('force_render', '1');
-        }
+        fd.append('mode', document.getElementById('compression-mode').value);
+        fd.append('async', '1');
 
-        const res = await fetch(form.dataset.endpoint, { method: 'POST', body: fd });
+        let res = await fetch(form.dataset.endpoint, { method: 'POST', body: fd });
+        if (res.status === 202) {
+            const job = await res.json();
+            const deadline = Date.now() + 7 * 60 * 1000;
+            while (true) {
+                if (Date.now() > deadline) throw new Error('Processing is taking too long. Please retry.');
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                const poll = await fetch(job.status_url, { cache: 'no-store' });
+                if (!poll.ok) throw new Error('Unable to check compression status. Please retry.');
+                const state = await poll.json();
+                if (state.state === 'error') throw new Error(state.error);
+                if (state.state === 'done') {
+                    res = await fetch(state.download_url, { cache: 'no-store' });
+                    break;
+                }
+            }
+        }
 
         if (!res.ok) {
             // Try to parse JSON error
@@ -243,7 +258,9 @@ form.addEventListener('submit', async (e) => {
                 const j = await res.json();
                 showError(j.error || `Server error ${res.status}`);
             } catch {
-                showError(`Server error ${res.status}`);
+                showError(res.status === 524
+                    ? 'The server took too long to respond. Please retry in lossless mode.'
+                    : `Server error ${res.status}`);
             }
             return;
         }
@@ -266,7 +283,7 @@ form.addEventListener('submit', async (e) => {
 
         // Build result message
         const savedPct = origSize > 0 ? Math.round((1 - achvSize / origSize) * 100) : 0;
-        resultMsg.textContent = `Reduced by ${savedPct}%  ·  ${fmtBytes(achvSize)}`;
+        resultMsg.textContent = `${targetMet ? 'Target met' : 'Target not met'} · Reduced by ${savedPct}% · ${fmtBytes(achvSize)}`;
 
         // Show size comparison card
         document.getElementById('sz-original').textContent = fmtBytes(origSize);
@@ -288,7 +305,8 @@ form.addEventListener('submit', async (e) => {
         } else {
             document.getElementById('sz-note').textContent =
                 `Target not fully met — ${fmtBytes(diff)} above target. ` +
-                `PDF may contain mostly text or already compressed images.`;
+                `The selected mode could not reach this limit. Lossless compression has limits; ` +
+                `image compression or aggressive mode may reduce quality.`;
         }
 
         resultArea.style.display = '';
