@@ -8,5 +8,6 @@ pytesseract
 ezdxf
 matplotlib
 pillow-heif
+vtracer
 openai-whisper
 pix2tex

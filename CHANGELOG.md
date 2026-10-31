@@ -24,12 +24,11 @@ All notable changes to **ACCA TOOLS** are documented here. The format is based o
 
 ### Added - Image Tools
 
-- **Image to SVG (Vektorisasi Gambar)** (/image/image-to-svg) - mengonversi gambar bitmap (PNG, JPG, WebP, BMP) menjadi grafik vektor SVG berbasis kurva matematis resolusi tak hingga:
-  - **Dua Mode Vektorisasi**:
-    - **Monokrom (Line Art, Tanda Tangan & Cap)**: Thresholding presisi (Otsu otomatis atau manual), pembersihan latar belakang transparan, dan pewarnaan tinta kustom (hitam, biru/ungu stempel, merah, hijau).
-    - **Berwarna (Color Posterization)**: K-Means color quantization (2-32 warna) dengan pengurutan lapisan kurva area terbesar dan penghapusan latar belakang putih otomatis.
-  - **4 Preset Cepat 1-Klik**: Tanda Tangan, Cap/Stempel Resmi, Logo Berwarna, dan Diagram/Line Art.
-  - **Studio Pratinjau Interaktif**: Perbandingan *side-by-side* gambar asli vs vektor SVG, kontrol kehalusan garis (*smoothness*), filter bintik/noise, serta tombol salin kode SVG dan download file .svg.
+- **Image to SVG (Vektorisasi Presisi Tinggi Bézier Spline)** (/image/image-to-svg) - mengonversi gambar bitmap (PNG, JPG, WebP, BMP) menjadi grafik vektor SVG berbasis kurva kubik Bézier matematis (`<path d="M... C...">`) resolusi tak hingga:
+  - **Mesin VTracer Bézier Spline Terintegrasi**: Tracing kontur berbasis kurva kubik Bézier yang mulus, rapi, dan bebas gerigi poligon. Menjaga detail tipografi, logo bergradasi, diagram, dan formula ilmiah agar tetap tajam saat diperbesar tanpa batas.
+  - **Dukungan Penuh Poster & Ilustrasi Berwarna (Full Color)**: Mode **Stacked Layers** mempertahankan kedalaman gradasi warna asli dengan presisi hingga 8-bit per channel. Preset **Poster & Desain Rinci**: mempertahankan kanvas dan latar belakang putih asli tanpa membuat halaman berlubang atau transparan.
+  - **Mode Monokrom (Tanda Tangan & Cap Stempel)**: Pengaturan threshold kontras adaptif, latar transparan otomatis, dan palet warna tinta stempel resmi (Biru Stempel `#1e3a8a`, Merah `#b91c1c`, Ungu `#4338ca`, Hijau `#15803d`, Hitam).
+  - **Ekspor Master SVG Resolusi Penuh**: Opsi unduh langsung file master SVG pada resolusi asli penuh hingga 4000px+, serta opsi unduh versi optimal untuk web.
 - **Merge Images** — combine two or more images into one with a balanced grid by default, plus horizontal and vertical layouts. Images are scaled with aspect ratio preserved (justified rows) so they line up flush with no leftover background bands. The output size is bounded by a configurable max output width (plus hard safety caps) so merging large multi-megapixel photos stays fast instead of hanging on an oversized canvas. Configurable spacing, background/border color, and PNG/JPG/WebP output. Uses the universal upload template with a new reusable `color` form input type.
 
 ## [0.6.4] — 2026-06-07

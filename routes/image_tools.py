@@ -28,6 +28,12 @@ try:
 except ImportError:
     HAS_CV2 = False
 
+try:
+    import vtracer
+    HAS_VTRACER = True
+except ImportError:
+    HAS_VTRACER = False
+
 # Register HEIF/HEIC opener so every PIL.Image.open call across the app
 # transparently handles iPhone-format photos. This is a no-op if the
 # package isn't installed.
@@ -1219,37 +1225,147 @@ def palette():
 
 def _vectorize_image_to_svg(
     img_bytes: bytes,
-    mode: str = "bw",
+    mode: str = "color",
+    curve_mode: str = "spline",
+    hierarchical: str = "stacked",
+    color_precision: int = 7,
+    layer_difference: int = 16,
+    corner_threshold: int = 60,
+    filter_speckle: int = 4,
+    transparent_bg: bool = False,
+    fill_color: str = "#000000",
     threshold: int = 128,
+    invert: bool = False,
+    max_dim: int = 1600,
     colors: int = 8,
     smoothness: float = 1.0,
-    filter_speckle: int = 8,
-    transparent_bg: bool = True,
-    fill_color: str = "#000000",
-    invert: bool = False,
 ) -> tuple[str, int, int]:
     """
-    Vectorize a raster image into scalable SVG paths using OpenCV and NumPy.
-    Supports 'bw' (monochrome/signature/stamp) and 'color' (multi-color posterization).
+    Vectorize a raster image into scalable SVG paths using vtracer (Bézier spline)
+    or fallback to OpenCV contours.
+    Supports 'color' (full color Bézier vector art) and 'bw' (monochrome/signature/stamp).
     Returns (svg_string, width, height).
     """
-    if not HAS_CV2:
-        raise RuntimeError("OpenCV (cv2) is not installed on this server.")
+    if not HAS_VTRACER and not HAS_CV2:
+        raise RuntimeError("Neither vtracer nor OpenCV (cv2) is installed on this server.")
 
     pil_img = ImageOps.exif_transpose(Image.open(io.BytesIO(img_bytes))).convert("RGBA")
     w, h = pil_img.size
 
-    # Cap max dimensions for responsiveness and memory safety
-    max_dim = 2000
-    if max(w, h) > max_dim:
+    if max_dim and max(w, h) > max_dim:
         scale = max_dim / float(max(w, h))
         w, h = int(w * scale), int(h * scale)
         pil_img = pil_img.resize((w, h), Image.Resampling.LANCZOS)
 
-    np_rgba = np.array(pil_img)
+    if HAS_VTRACER:
+        arr = np.array(pil_img)
+        if mode == "color":
+            if transparent_bg:
+                # Mask out background if nearly pure white
+                r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+                white_mask = (r >= 244) & (g >= 244) & (b >= 244)
+                arr[white_mask, 3] = 0
+                pil_img = Image.fromarray(arr)
 
+            buf = io.BytesIO()
+            pil_img.save(buf, format="PNG")
+            png_bytes = buf.getvalue()
+
+            h_mode = "cutout" if hierarchical == "cutout" else "stacked"
+            c_mode = curve_mode if curve_mode in ("spline", "polygon", "none") else "spline"
+            c_prec = max(2, min(8, int(color_precision)))
+            l_diff = max(4, min(48, int(layer_difference)))
+            f_speck = max(0, min(100, int(filter_speckle)))
+            c_thresh = max(10, min(120, int(corner_threshold)))
+
+            svg = vtracer.convert_raw_image_to_svg(
+                png_bytes,
+                "png",
+                "color",
+                h_mode,
+                c_mode,
+                f_speck,
+                c_prec,
+                l_diff,
+                c_thresh,
+                4.0,   # length_threshold
+                10,    # max_iterations
+                45,    # splice_threshold
+                2      # path_precision
+            )
+            if "<svg" in svg and "viewBox" not in svg:
+                svg = svg.replace("<svg ", f'<svg viewBox="0 0 {w} {h}" ', 1)
+            return svg, w, h
+        else:
+            # Monochrome mode (signature, stamp, line art)
+            gray = np.array(pil_img.convert("L"))
+            alpha = arr[:, :, 3]
+
+            if threshold <= 0:
+                if HAS_CV2:
+                    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                else:
+                    binary = (gray >= 128).astype(np.uint8) * 255
+            else:
+                binary = (gray >= threshold).astype(np.uint8) * 255
+
+            if (alpha < 128).any():
+                binary[alpha < 128] = 255
+
+            if invert:
+                binary = 255 - binary
+
+            # Build RGBA mask
+            rgba_mono = np.zeros((h, w, 4), dtype=np.uint8)
+            hex_c = fill_color.lstrip("#")
+            if len(hex_c) == 6:
+                cr, cg, cb = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
+            else:
+                cr, cg, cb = 0, 0, 0
+
+            rgba_mono[:, :, 0] = cr
+            rgba_mono[:, :, 1] = cg
+            rgba_mono[:, :, 2] = cb
+
+            if transparent_bg:
+                rgba_mono[binary == 0, 3] = 255
+                rgba_mono[binary != 0, 3] = 0
+            else:
+                rgba_mono[binary == 0, 3] = 255
+                rgba_mono[binary != 0, 0] = 255
+                rgba_mono[binary != 0, 1] = 255
+                rgba_mono[binary != 0, 2] = 255
+                rgba_mono[binary != 0, 3] = 255
+
+            buf = io.BytesIO()
+            Image.fromarray(rgba_mono).save(buf, format="PNG")
+            png_bytes = buf.getvalue()
+
+            c_mode = curve_mode if curve_mode in ("spline", "polygon", "none") else "spline"
+            f_speck = max(0, min(100, int(filter_speckle)))
+
+            svg = vtracer.convert_raw_image_to_svg(
+                png_bytes,
+                "png",
+                "color",
+                "stacked",
+                c_mode,
+                f_speck,
+                6,
+                16,
+                60,
+                4.0,
+                10,
+                45,
+                2
+            )
+            if "<svg" in svg and "viewBox" not in svg:
+                svg = svg.replace("<svg ", f'<svg viewBox="0 0 {w} {h}" ', 1)
+            return svg, w, h
+
+    # Fallback to OpenCV if vtracer is not available
+    np_rgba = np.array(pil_img)
     if mode == "color":
-        # Multi-color posterization via K-Means
         bg = Image.new("RGBA", (w, h), (255, 255, 255, 255))
         bg.paste(pil_img, mask=pil_img.split()[3])
         np_rgb = np.array(bg.convert("RGB"))
@@ -1300,7 +1416,6 @@ def _vectorize_image_to_svg(
         return svg, w, h
 
     else:
-        # Monochrome mode (signature, stamp, line art)
         gray = cv2.cvtColor(np_rgba, cv2.COLOR_RGBA2GRAY)
         alpha = np_rgba[:, :, 3]
 
@@ -1347,8 +1462,8 @@ def _vectorize_image_to_svg(
 
 @bp.route("/image-to-svg", methods=["POST"])
 def image_to_svg():
-    if not HAS_CV2:
-        return jsonify(error="Modul OpenCV (cv2) tidak tersedia di server."), 500
+    if not HAS_VTRACER and not HAS_CV2:
+        return jsonify(error="Modul vektorisasi (vtracer / OpenCV) tidak tersedia di server."), 500
 
     files = request.files.getlist("files") or request.files.getlist("file")
     if not files or not files[0].filename:
@@ -1359,19 +1474,26 @@ def image_to_svg():
     if not img_bytes:
         return jsonify(error="File gambar kosong."), 400
 
-    mode = request.form.get("mode", "bw").lower()
+    mode = request.form.get("mode", "color").lower()
     if mode not in ("bw", "color"):
-        mode = "bw"
+        mode = "color"
+
+    curve_mode = request.form.get("curve_mode", "spline").lower()
+    hierarchical = request.form.get("hierarchical", "stacked").lower()
+    color_precision = safe_int(request.form.get("color_precision"), 7, min_val=2, max_val=8)
+    layer_difference = safe_int(request.form.get("layer_difference"), 16, min_val=4, max_val=48)
+    corner_threshold = safe_int(request.form.get("corner_threshold"), 60, min_val=10, max_val=120)
 
     threshold = safe_int(request.form.get("threshold"), 128, min_val=0, max_val=255)
     colors = safe_int(request.form.get("colors"), 8, min_val=2, max_val=32)
     smoothness = safe_float(request.form.get("smoothness"), 1.0)
     smoothness = max(0.2, min(5.0, smoothness))
-    filter_speckle = safe_int(request.form.get("filter_speckle"), 8, min_val=0, max_val=500)
+    filter_speckle = safe_int(request.form.get("filter_speckle"), 4, min_val=0, max_val=500)
 
-    transparent_bg = request.form.get("transparent_bg") in ("true", "1", "on", "yes", True)
-    if "transparent_bg" not in request.form:
-        transparent_bg = True
+    if "transparent_bg" in request.form:
+        transparent_bg = request.form.get("transparent_bg") in ("true", "1", "on", "yes", True)
+    else:
+        transparent_bg = (mode == "bw")
 
     fill_color = request.form.get("fill_color", "#000000").strip()
     if not re.match(r"^#[0-9a-fA-F]{3,8}$", fill_color):
@@ -1379,18 +1501,32 @@ def image_to_svg():
 
     invert = request.form.get("invert") in ("true", "1", "on", "yes", True)
     action = request.form.get("action", "download").lower()
+    download_quality = request.form.get("download_quality", "full").lower()
+
+    if action == "preview":
+        max_dim = 1400  # Fast interactive preview
+    elif download_quality == "optimal":
+        max_dim = 1800  # Compact web vector
+    else:
+        max_dim = 4000  # Full master resolution
 
     try:
         svg_str, w, h = _vectorize_image_to_svg(
             img_bytes,
             mode=mode,
-            threshold=threshold,
-            colors=colors,
-            smoothness=smoothness,
+            curve_mode=curve_mode,
+            hierarchical=hierarchical,
+            color_precision=color_precision,
+            layer_difference=layer_difference,
+            corner_threshold=corner_threshold,
             filter_speckle=filter_speckle,
             transparent_bg=transparent_bg,
             fill_color=fill_color,
+            threshold=threshold,
             invert=invert,
+            max_dim=max_dim,
+            colors=colors,
+            smoothness=smoothness,
         )
 
         if action == "preview":
@@ -1400,6 +1536,7 @@ def image_to_svg():
                 width=w,
                 height=h,
                 svg_size=len(svg_str.encode("utf-8")),
+                engine="vtracer" if HAS_VTRACER else "opencv",
             )
 
         stem = file.filename.rsplit(".", 1)[0]
