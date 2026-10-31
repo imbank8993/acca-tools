@@ -1875,6 +1875,57 @@ def _extract_text_and_runs_from_docx(file_stream) -> list[tuple[str, bool]]:
     return lines
 
 
+def _extract_text_and_runs_from_pdf(pdf_stream) -> list[tuple[str, bool]]:
+    """
+    Extract lines of text and bold formatting from a PDF exam file.
+    Supports single-column and 2-column school exam layouts with column-aware reading order.
+    Detects bold text spans (e.g. bold answer keys in teacher documents).
+    """
+    doc = fitz.open(stream=pdf_stream, filetype="pdf")
+    lines: list[tuple[str, bool]] = []
+
+    for page in doc:
+        width = page.rect.width
+        page_dict = page.get_text("dict")
+        blocks = page_dict.get("blocks", [])
+        if not blocks:
+            continue
+
+        text_blocks = [b for b in blocks if "lines" in b and b.get("lines")]
+        if not text_blocks:
+            continue
+
+        left_blocks = [b for b in text_blocks if b["bbox"][2] <= width * 0.55]
+        right_blocks = [b for b in text_blocks if b["bbox"][0] >= width * 0.45]
+        is_two_col = (len(left_blocks) >= 2 and len(right_blocks) >= 2)
+
+        if is_two_col:
+            top_headers = sorted(
+                [b for b in text_blocks if b["bbox"][1] < 140 and (b["bbox"][2] - b["bbox"][0]) > width * 0.4],
+                key=lambda b: b["bbox"][1],
+            )
+            col1 = sorted([b for b in left_blocks if b not in top_headers], key=lambda b: b["bbox"][1])
+            col2 = sorted([b for b in right_blocks if b not in top_headers], key=lambda b: b["bbox"][1])
+            ordered_blocks = top_headers + col1 + col2
+        else:
+            ordered_blocks = sorted(text_blocks, key=lambda b: (b["bbox"][1], b["bbox"][0]))
+
+        for b in ordered_blocks:
+            for l in b["lines"]:
+                line_text = "".join(s.get("text", "") for s in l["spans"]).strip()
+                if not line_text:
+                    continue
+                is_bold = any(
+                    bool(s.get("flags", 0) & 2 or "bold" in s.get("font", "").lower() or "hebo" in s.get("font", "").lower())
+                    for s in l["spans"]
+                    if s.get("text", "").strip()
+                )
+                lines.append((line_text, is_bold))
+
+    doc.close()
+    return lines
+
+
 def _parse_raw_questions(raw_input, default_points=None, default_materi="Pengetahuan Umum"):
     """
     Intelligently parses teacher questions into a structured list of questions
@@ -2272,7 +2323,7 @@ def cbt_converter_page():
     return render_template(
         "tools/cbt_converter.html",
         title="Konverter Soal ke Template ACCA CBT",
-        description="Unggah naskah soal Word (.docx) atau tempel naskah soal guru. Sistem otomatis mendeteksi tipe soal (PG, PGK, BS, Menjodohkan, dsb.), opsi, dan kunci jawaban, lalu menyusunnya ke dalam format resmi 4-tabel ACCA CBT siap diimpor.",
+        description="Unggah naskah soal PDF (.pdf), Word (.docx), atau tempel naskah soal guru. Sistem otomatis mendeteksi tipe soal (PG, PGK, BS, Menjodohkan, dsb.), opsi, dan kunci jawaban, lalu menyusunnya ke dalam format resmi 4-tabel ACCA CBT siap diimpor.",
         endpoint=url_for("acca_plus.cbt_converter"),
     )
 
@@ -2316,15 +2367,18 @@ def cbt_converter():
                 if fn.endswith(".docx"):
                     lines = _extract_text_and_runs_from_docx(io.BytesIO(uploaded_file.read()))
                     questions, summary = _parse_raw_questions(lines, default_points, default_materi)
+                elif fn.endswith(".pdf"):
+                    lines = _extract_text_and_runs_from_pdf(io.BytesIO(uploaded_file.read()))
+                    questions, summary = _parse_raw_questions(lines, default_points, default_materi)
                 elif fn.endswith(".txt"):
                     content = uploaded_file.read().decode("utf-8", errors="ignore")
                     questions, summary = _parse_raw_questions(content, default_points, default_materi)
                 else:
-                    return jsonify(error="Format file tidak didukung. Harap unggah file .docx atau .txt"), 400
+                    return jsonify(error="Format file tidak didukung. Harap unggah file .pdf, .docx, atau .txt"), 400
             elif raw_text:
                 questions, summary = _parse_raw_questions(raw_text, default_points, default_materi)
             else:
-                return jsonify(error="Harap unggah file Word (.docx) atau masukkan teks soal."), 400
+                return jsonify(error="Harap unggah file naskah soal (.pdf / .docx) atau masukkan teks soal."), 400
 
             if not questions:
                 return jsonify(error="Tidak ada butir soal yang berhasil dideteksi. Pastikan naskah soal memiliki nomor soal (contoh: 1. Pertanyaan...)"), 400

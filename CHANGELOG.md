@@ -5,7 +5,7 @@ All notable changes to **ACCA TOOLS** are documented here. The format is based o
 ## [Unreleased]
 
 ### Added - ACCA Plus
-- **Konverter Soal ke Template ACCA CBT** (`/acca-plus/cbt-converter`) - otomatis mengonversi naskah soal Word (`.docx`) atau teks biasa milik guru ke format resmi 4-tabel ACCA CBT yang siap langsung diimpor ke sistem CBT:
+- **Konverter Soal ke Template ACCA CBT** (/acca-plus/cbt-converter) - otomatis mengonversi naskah soal PDF (.pdf), Word (.docx), atau teks biasa milik guru ke format resmi 4-tabel ACCA CBT yang siap langsung diimpor ke sistem CBT:
   - **Dukungan 8 Jenis Soal Lengkap**:
     - `PG` (Pilihan Ganda Biasa dengan opsi A-E dan 1 kunci)
     - `PGK` (Pilihan Ganda Kompleks / Checklist dengan banyak kunci terpisah koma)
@@ -16,6 +16,7 @@ All notable changes to **ACCA TOOLS** are documented here. The format is based o
     - `ESAI` (Uraian bebas dengan panduan rubrik penilaian)
     - `URUT` (Pengurutan langkah/tahapan dengan kunci urutan angka)
   - **Mesin Ekstraksi & Deteksi Cerdas**:
+    - Dukungan membaca naskah soal langsung dari **PDF (.pdf)** dengan pemetaan kolom ujian 1-kolom atau 2-kolom.
     - Membaca nomor soal, opsi jawaban (termasuk deteksi opsi inline multi-kolom dalam 1 baris), kunci jawaban inline atau tabel kunci di akhir dokumen (*bottom answer keys*), serta bobot poin.
     - Deteksi opsi tebal (*bold runs*) atau berbintang (`*A.`) sebagai kunci jawaban otomatis jika tidak ada teks kunci eksplisit.
     - Menjaga teks bacaan stimulus serta materi/indikator kisi-kisi.

@@ -12,7 +12,7 @@
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">
             <div>
                 <p style="margin:0 0 .5rem 0">
-                    <strong>Cara Kerja:</strong> Unggah dokumen naskah soal guru (Word <code>.docx</code> atau teks biasa) atau tempel naskah soal.
+                    <strong>Cara Kerja:</strong> Unggah dokumen naskah soal guru (PDF <code>.pdf</code>, Word <code>.docx</code>, atau teks biasa) atau tempel naskah soal.
                     Sistem mendeteksi otomatis: nomor soal, jenis soal (<strong>PG, PGK, Benar/Salah, Menjodohkan, Kategorisasi, Isian, Esai, Urut</strong>), opsi, dan kunci jawaban.
                 </p>
                 <p style="margin:0;font-size:.9em;color:var(--muted)">
@@ -32,7 +32,7 @@
     <div class="card" style="margin-bottom:1.5rem">
         <div style="display:flex;gap:.5rem;border-bottom:1px solid var(--border);padding:.75rem 1rem">
             <button type="button" class="tab-btn active" id="tab-upload-btn" onclick="switchInputTab('upload')">
-                <i class="bi bi-file-earmark-word-fill" style="color:#2b579a"></i> 1. Unggah File Word / Teks (.docx / .txt)
+                <i class="bi bi-file-earmark-pdf-fill" style="color:#dc2626"></i><i class="bi bi-file-earmark-word-fill" style="color:#2b579a;margin-left:2px"></i> 1. Unggah File PDF / Word / Teks (.pdf / .docx / .txt)
             </button>
             <button type="button" class="tab-btn" id="tab-paste-btn" onclick="switchInputTab('paste')">
                 <i class="bi bi-clipboard2-fill" style="color:var(--primary)"></i> 2. Tempel Teks Soal Langsung
@@ -43,12 +43,12 @@
             <!-- Upload Panel -->
             <div id="panel-upload">
                 <div class="upload-zone" id="cbt-upload-zone" style="cursor:pointer">
-                    <input type="file" id="cbt-file-input" accept=".docx,.txt" style="display:none">
+                    <input type="file" id="cbt-file-input" accept=".pdf,.docx,.txt" style="display:none">
                     <div class="upload-prompt" id="cbt-upload-prompt">
                         <i class="bi bi-cloud-arrow-up-fill" style="font-size:2.5rem;color:var(--primary)"></i>
                         <p style="margin:.5rem 0 .25rem 0;font-weight:600">Seret &amp; lepas dokumen naskah soal di sini</p>
                         <span>atau klik untuk memilih file</span>
-                        <small style="color:var(--muted);display:block;margin-top:.4rem">Format didukung: Microsoft Word (.docx) atau Teks (.txt)</small>
+                        <small style="color:var(--muted);display:block;margin-top:.4rem">Format didukung: PDF (.pdf), Microsoft Word (.docx), atau Teks (.txt)</small>
                     </div>
                 </div>
                 <div id="file-info-badge" style="display:none;margin-top:.75rem;padding:.5rem .75rem;background:rgba(var(--primary-rgb, 43, 87, 154), 0.1);border-radius:6px;font-weight:500;align-items:center;justify-content:space-between">
@@ -401,7 +401,7 @@ document.getElementById('btn-parse').addEventListener('click', async () => {
 
     if (isUploadTab) {
         if (!fileInput.files || !fileInput.files[0]) {
-            showError("Silakan pilih file Word (.docx) atau teks (.txt) terlebih dahulu.");
+            showError("Silakan pilih file PDF (.pdf), Word (.docx), atau teks (.txt) terlebih dahulu.");
             return;
         }
         formData.append('file', fileInput.files[0]);

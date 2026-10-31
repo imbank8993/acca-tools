@@ -237,3 +237,50 @@ def test_cbt_converter_routes(client):
     assert res_gen.status_code == 200
     assert "wordprocessingml" in res_gen.headers.get("Content-Type", "")
     assert len(res_gen.data) > 0
+
+
+def test_parse_pdf_questions(client):
+    """Test extracting and parsing questions directly from an uploaded PDF file."""
+    # Create an in-memory exam PDF
+    doc = plus.fitz.open()
+    page = doc.new_page(width=595, height=842)
+    page.insert_text((50, 50), "UJIAN AKHIR SEMESTER\nILMU PENGETAHUAN ALAM", fontsize=12)
+
+    # Question 1: PG with bold answer key option
+    page.insert_text((50, 90), "1. Pusat tata surya kita adalah .....", fontsize=11, fontname="helv")
+    page.insert_text((50, 110), "A. Bumi", fontsize=10, fontname="helv")
+    page.insert_text((50, 130), "B. Matahari", fontsize=10, fontname="hebo") # Bold key
+    page.insert_text((50, 150), "C. Bulan", fontsize=10, fontname="helv")
+    page.insert_text((50, 170), "D. Bintang Kejora", fontsize=10, fontname="helv")
+
+    # Question 2: BS
+    page.insert_text((50, 200), "2. Tentukan Benar atau Salah pernyataan berikut:", fontsize=11, fontname="helv")
+    page.insert_text((50, 220), "- Air mendidih pada suhu 100 C [B]", fontsize=10, fontname="helv")
+    page.insert_text((50, 240), "- Es batu terasa panas [S]", fontsize=10, fontname="helv")
+
+    pdf_bytes = doc.tobytes()
+    doc.close()
+
+    # 1. Test extraction function directly
+    lines = plus._extract_text_and_runs_from_pdf(pdf_bytes)
+    assert len(lines) >= 7
+    questions, summary = plus._parse_raw_questions(lines)
+    assert len(questions) == 2
+    assert questions[0]["type"] == "PG"
+    assert questions[0]["key"] == "B" # Bold detected
+    assert questions[1]["type"] == "BS"
+
+    # 2. Test uploading the PDF to the endpoint
+    res = client.post(
+        "/acca-plus/cbt-converter",
+        data={
+            "action": "parse",
+            "file": (io.BytesIO(pdf_bytes), "soal_ujian.pdf"),
+        },
+        content_type="multipart/form-data",
+    )
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["success"] is True
+    assert len(data["questions"]) == 2
+    assert data["questions"][0]["key"] == "B"
