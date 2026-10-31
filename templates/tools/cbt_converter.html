@@ -1,0 +1,919 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - ACCA - TOOLS{% endblock %}
+
+{% block content %}
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>{{ title }}</h1>
+        <p>{{ description|safe }}</p>
+    </div>
+
+    <div class="tool-notes">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">
+            <div>
+                <p style="margin:0 0 .5rem 0">
+                    <strong>Cara Kerja:</strong> Unggah dokumen naskah soal guru (Word <code>.docx</code> atau teks biasa) atau tempel naskah soal.
+                    Sistem mendeteksi otomatis: nomor soal, jenis soal (<strong>PG, PGK, Benar/Salah, Menjodohkan, Kategorisasi, Isian, Esai, Urut</strong>), opsi, dan kunci jawaban.
+                </p>
+                <p style="margin:0;font-size:.9em;color:var(--muted)">
+                    <i class="bi bi-info-circle"></i>
+                    Hasil konversi adalah file <strong>DOCX 4-Tabel Resmi ACCA CBT</strong> (<em>TABEL SOAL, TABEL KISI-KISI, TABEL STIMULUS, TABEL PETUNJUK</em>) yang siap langsung diimpor ke sistem CBT tanpa perlu mengetik ulang tabel secara manual.
+                </p>
+            </div>
+            <div>
+                <button type="button" class="btn btn-outline" id="btn-download-base-template" style="white-space:nowrap">
+                    <i class="bi bi-file-earmark-arrow-down"></i> Unduh Template Kosong (.docx)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mode Input Tabs -->
+    <div class="card" style="margin-bottom:1.5rem">
+        <div style="display:flex;gap:.5rem;border-bottom:1px solid var(--border);padding:.75rem 1rem">
+            <button type="button" class="tab-btn active" id="tab-upload-btn" onclick="switchInputTab('upload')">
+                <i class="bi bi-file-earmark-word-fill" style="color:#2b579a"></i> 1. Unggah File Word / Teks (.docx / .txt)
+            </button>
+            <button type="button" class="tab-btn" id="tab-paste-btn" onclick="switchInputTab('paste')">
+                <i class="bi bi-clipboard2-fill" style="color:var(--primary)"></i> 2. Tempel Teks Soal Langsung
+            </button>
+        </div>
+
+        <div style="padding:1.25rem">
+            <!-- Upload Panel -->
+            <div id="panel-upload">
+                <div class="upload-zone" id="cbt-upload-zone" style="cursor:pointer">
+                    <input type="file" id="cbt-file-input" accept=".docx,.txt" style="display:none">
+                    <div class="upload-prompt" id="cbt-upload-prompt">
+                        <i class="bi bi-cloud-arrow-up-fill" style="font-size:2.5rem;color:var(--primary)"></i>
+                        <p style="margin:.5rem 0 .25rem 0;font-weight:600">Seret &amp; lepas dokumen naskah soal di sini</p>
+                        <span>atau klik untuk memilih file</span>
+                        <small style="color:var(--muted);display:block;margin-top:.4rem">Format didukung: Microsoft Word (.docx) atau Teks (.txt)</small>
+                    </div>
+                </div>
+                <div id="file-info-badge" style="display:none;margin-top:.75rem;padding:.5rem .75rem;background:rgba(var(--primary-rgb, 43, 87, 154), 0.1);border-radius:6px;font-weight:500;align-items:center;justify-content:space-between">
+                    <span><i class="bi bi-file-earmark-check-fill text-success"></i> <strong id="selected-filename"></strong> <span id="selected-filesize" style="color:var(--muted);font-weight:normal"></span></span>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="clearSelectedFile()" style="padding:.2rem .5rem;font-size:.8rem"><i class="bi bi-x"></i> Ganti File</button>
+                </div>
+            </div>
+
+            <!-- Paste Panel -->
+            <div id="panel-paste" style="display:none">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+                    <label style="font-weight:600;font-size:.9rem;color:var(--text)">Salin &amp; Tempel Naskah Soal:</label>
+                    <button type="button" class="btn btn-sm btn-outline" id="btn-load-demo-text" style="font-size:.8rem">
+                        <i class="bi bi-magic"></i> Muat Contoh Naskah Soal (Demo)
+                    </button>
+                </div>
+                <textarea id="raw-text-input" class="form-control" rows="10" placeholder="Contoh naskah soal:&#10;&#10;1. Siapakah presiden pertama Republik Indonesia?&#10;A. Ir. Soekarno&#10;B. Drs. Moh. Hatta&#10;C. B.J. Habibie&#10;D. Megawati Soekarnoputri&#10;Kunci: A&#10;Poin: 1&#10;&#10;2. Manakah yang merupakan contoh energi terbarukan? (Pilih lebih dari satu)&#10;A. Tenaga Surya&#10;B. Batu Bara&#10;C. Tenaga Angin&#10;D. Minyak Bumi&#10;Kunci: A, C&#10;Poin: 2&#10;&#10;3. Tentukan apakah pernyataan berikut Benar (B) atau Salah (S):&#10;- Air membeku pada suhu 0 derajat celcius [B]&#10;- Matahari terbit dari arah barat [S]&#10;&#10;4. Pasangkan negara dengan ibu kotanya:&#10;- Indonesia -> Jakarta&#10;- Jepang -> Tokyo&#10;&#10;5. Lambang kimia untuk air adalah .....&#10;Kunci: H2O" style="width:100%;font-family:monospace;font-size:.9rem"></textarea>
+            </div>
+
+            <!-- Default Settings (Collapsible) -->
+            <details style="margin-top:1rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.75rem">
+                <summary style="cursor:pointer;font-weight:600;font-size:.9rem">
+                    <i class="bi bi-gear-fill"></i> Pengaturan Default Bobot Poin &amp; Kisi-kisi (Opsional)
+                </summary>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:.75rem;margin-top:.75rem">
+                    <div>
+                        <label style="font-size:.8rem;color:var(--muted);display:block">Poin PG</label>
+                        <input type="number" id="def-pg-pt" class="form-control" value="1" min="1" max="100">
+                    </div>
+                    <div>
+                        <label style="font-size:.8rem;color:var(--muted);display:block">Poin PGK</label>
+                        <input type="number" id="def-pgk-pt" class="form-control" value="2" min="1" max="100">
+                    </div>
+                    <div>
+                        <label style="font-size:.8rem;color:var(--muted);display:block">Poin Benar/Salah</label>
+                        <input type="number" id="def-bs-pt" class="form-control" value="2" min="1" max="100">
+                    </div>
+                    <div>
+                        <label style="font-size:.8rem;color:var(--muted);display:block">Poin Menjodohkan</label>
+                        <input type="number" id="def-mj-pt" class="form-control" value="2" min="1" max="100">
+                    </div>
+                    <div>
+                        <label style="font-size:.8rem;color:var(--muted);display:block">Poin Isian</label>
+                        <input type="number" id="def-isian-pt" class="form-control" value="1" min="1" max="100">
+                    </div>
+                    <div>
+                        <label style="font-size:.8rem;color:var(--muted);display:block">Poin Esai</label>
+                        <input type="number" id="def-esai-pt" class="form-control" value="5" min="1" max="100">
+                    </div>
+                    <div>
+                        <label style="font-size:.8rem;color:var(--muted);display:block">Poin Urutan</label>
+                        <input type="number" id="def-urut-pt" class="form-control" value="2" min="1" max="100">
+                    </div>
+                    <div style="grid-column:1/-1">
+                        <label style="font-size:.8rem;color:var(--muted);display:block">Materi Pokok Default (Tabel Kisi-Kisi)</label>
+                        <input type="text" id="def-materi" class="form-control" value="Pengetahuan Umum" placeholder="Contoh: Penilaian Akhir Semester Ganjil">
+                    </div>
+                </div>
+            </details>
+
+            <!-- Analyze Trigger Button -->
+            <div style="margin-top:1.25rem;display:flex;justify-content:flex-end">
+                <button type="button" class="btn btn-primary" id="btn-parse" style="padding:.6rem 1.5rem;font-weight:600">
+                    <i class="bi bi-cpu-fill"></i> Ekstrak &amp; Analisis Naskah Soal
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Spinner State -->
+    <div id="parse-loading" style="display:none;text-align:center;padding:2rem 0">
+        <div class="spinner-border text-primary" role="status" style="width:2.5rem;height:2.5rem"></div>
+        <p style="margin-top:.75rem;font-weight:600;color:var(--text)">Sedang membaca dan memetakan struktur soal...</p>
+        <small style="color:var(--muted)">Menganalisis butir soal, mendeteksi jenis (PG, PGK, BS, Menjodohkan), opsi, dan kunci jawaban</small>
+    </div>
+
+    <!-- Error Alert -->
+    <div id="alert-error" class="alert alert-danger" style="display:none;margin-bottom:1.5rem"></div>
+
+    <!-- Question Studio & Review Editor (Rendered After Parsing) -->
+    <div id="studio-section" style="display:none">
+        <!-- Summary Stats Card -->
+        <div class="card" style="padding:1.25rem;margin-bottom:1.5rem;background:var(--surface)">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1rem">
+                <div>
+                    <h3 style="margin:0 0 .25rem 0;display:flex;align-items:center;gap:.5rem">
+                        <i class="bi bi-kanban-fill" style="color:var(--primary)"></i> Studio Penelaahan &amp; Editor Soal
+                    </h3>
+                    <p style="margin:0;font-size:.85rem;color:var(--muted)">
+                        Periksa hasil deteksi otomatis di bawah ini. Anda dapat mengedit teks soal, mengganti jenis soal, mengubah kunci, atau menambahkan soal baru sebelum generate DOCX.
+                    </p>
+                </div>
+                <div style="display:flex;gap:.5rem">
+                    <button type="button" class="btn btn-outline" id="btn-add-question" style="font-size:.85rem">
+                        <i class="bi bi-plus-circle-fill"></i> Tambah Soal Baru
+                    </button>
+                    <button type="button" class="btn btn-primary" id="btn-generate-top" style="font-size:.9rem;font-weight:600">
+                        <i class="bi bi-file-earmark-check-fill"></i> Generate DOCX CBT
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:.75rem;padding:.75rem;background:var(--bg);border-radius:8px">
+                <div>
+                    <span style="font-size:.75rem;color:var(--muted);text-transform:uppercase">Total Soal</span>
+                    <div id="stat-total-q" style="font-size:1.4rem;font-weight:700;color:var(--text)">0</div>
+                </div>
+                <div>
+                    <span style="font-size:.75rem;color:var(--muted);text-transform:uppercase">Total Poin</span>
+                    <div id="stat-total-pt" style="font-size:1.4rem;font-weight:700;color:var(--primary)">0</div>
+                </div>
+                <div>
+                    <span style="font-size:.75rem;color:var(--muted);text-transform:uppercase">Status Kunci</span>
+                    <div id="stat-keys-status" style="margin-top:.2rem"></div>
+                </div>
+                <div style="grid-column:span 2">
+                    <span style="font-size:.75rem;color:var(--muted);text-transform:uppercase">Distribusi Jenis Soal</span>
+                    <div id="stat-types-pills" style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.25rem"></div>
+                </div>
+            </div>
+
+            <!-- Filter & Search Controls -->
+            <div style="display:flex;gap:.75rem;align-items:center;margin-top:1rem;flex-wrap:wrap">
+                <div style="flex:1;min-width:200px">
+                    <input type="text" id="filter-search" class="form-control form-control-sm" placeholder="Cari kata di teks soal..." oninput="applyFilters()">
+                </div>
+                <div>
+                    <select id="filter-type" class="form-select form-select-sm" onchange="applyFilters()">
+                        <option value="">Semua Jenis Soal</option>
+                        <option value="PG">PG (Pilihan Ganda)</option>
+                        <option value="PGK">PGK (Kompleks)</option>
+                        <option value="BS">BS (Benar / Salah)</option>
+                        <option value="MJ">MJ (Menjodohkan)</option>
+                        <option value="CAT">CAT (Kategorisasi)</option>
+                        <option value="ISIAN">ISIAN (Isian Singkat)</option>
+                        <option value="ESAI">ESAI (Uraian)</option>
+                        <option value="URUT">URUT (Urutan)</option>
+                    </select>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline" id="filter-missing-keys-btn" onclick="toggleMissingKeysFilter()">
+                        <i class="bi bi-funnel"></i> Butuh Kunci Saja
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Question Cards Container -->
+        <div id="questions-container" style="display:flex;flex-direction:column;gap:1rem;margin-bottom:2rem"></div>
+
+        <!-- Sticky Floating Action Bar -->
+        <div style="position:sticky;bottom:1.5rem;background:var(--surface);border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,0.15);border-radius:12px;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;z-index:90">
+            <div>
+                <strong id="bar-summary-text" style="font-size:1rem;color:var(--text)">0 Soal Siap Diekspor</strong>
+                <span style="color:var(--muted);font-size:.85rem;margin-left:.5rem" id="bar-points-text">(Total 0 Poin)</span>
+            </div>
+            <div style="display:flex;gap:.75rem;align-items:center">
+                <button type="button" class="btn btn-outline" onclick="window.scrollTo({top:0, behavior:'smooth'})">
+                    <i class="bi bi-arrow-up"></i> Ke Atas
+                </button>
+                <button type="button" class="btn btn-primary" id="btn-generate-bottom" style="padding:.6rem 1.75rem;font-weight:700;font-size:1rem">
+                    <i class="bi bi-file-earmark-arrow-down-fill"></i> Unduh File DOCX CBT (Siap Import)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.tab-btn {
+    background: transparent;
+    border: none;
+    padding: .5rem 1rem;
+    font-weight: 600;
+    font-size: .95rem;
+    color: var(--muted);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .2s ease;
+}
+.tab-btn:hover {
+    color: var(--text);
+    background: var(--bg);
+}
+.tab-btn.active {
+    color: var(--primary);
+    background: rgba(var(--primary-rgb, 43, 87, 154), 0.1);
+}
+.q-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+.q-card:focus-within, .q-card:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+.q-card.missing-key {
+    border-left: 4px solid #f59e0b;
+}
+.q-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+}
+.q-body {
+    padding: 1rem 1.25rem;
+}
+.type-badge {
+    font-size: .75rem;
+    font-weight: 700;
+    padding: .2rem .5rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+.opt-row {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: .4rem;
+}
+</style>
+
+<script>
+let parsedQuestions = [];
+let onlyMissingKeys = false;
+const ENDPOINT = "{{ endpoint }}";
+
+// Tab Switching
+function switchInputTab(tab) {
+    document.getElementById('panel-upload').style.display = (tab === 'upload') ? 'block' : 'none';
+    document.getElementById('panel-paste').style.display = (tab === 'paste') ? 'block' : 'none';
+    document.getElementById('tab-upload-btn').classList.toggle('active', tab === 'upload');
+    document.getElementById('tab-paste-btn').classList.toggle('active', tab === 'paste');
+}
+
+// File Drop & Select
+const uploadZone = document.getElementById('cbt-upload-zone');
+const fileInput = document.getElementById('cbt-file-input');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.style.borderColor = 'var(--primary)'; });
+uploadZone.addEventListener('dragleave', () => { uploadZone.style.borderColor = 'var(--border)'; });
+uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.style.borderColor = 'var(--border)';
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        fileInput.files = e.dataTransfer.files;
+        handleFileSelected();
+    }
+});
+fileInput.addEventListener('change', handleFileSelected);
+
+function handleFileSelected() {
+    if (fileInput.files && fileInput.files[0]) {
+        const file = fileInput.files[0];
+        document.getElementById('selected-filename').textContent = file.name;
+        document.getElementById('selected-filesize').textContent = `(${(file.size / 1024).toFixed(1)} KB)`;
+        document.getElementById('file-info-badge').style.display = 'flex';
+        uploadZone.style.display = 'none';
+    }
+}
+
+function clearSelectedFile() {
+    fileInput.value = '';
+    document.getElementById('file-info-badge').style.display = 'none';
+    uploadZone.style.display = 'block';
+}
+
+// Download Blank Template
+document.getElementById('btn-download-base-template').addEventListener('click', () => {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = ENDPOINT;
+    const actionInput = document.createElement('input');
+    actionInput.type = 'hidden';
+    actionInput.name = 'action';
+    actionInput.value = 'download_template';
+    form.appendChild(actionInput);
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+});
+
+// Demo Text Loader
+document.getElementById('btn-load-demo-text').addEventListener('click', () => {
+    const demo = `1. Siapakah presiden pertama Republik Indonesia?
+A. Ir. Soekarno
+B. Drs. Moh. Hatta
+C. B.J. Habibie
+D. Megawati Soekarnoputri
+Kunci: A
+Poin: 1
+
+2. Manakah yang merupakan contoh energi terbarukan? (Pilih semua jawaban yang benar)
+A. Tenaga Surya
+B. Batu Bara
+C. Tenaga Angin
+D. Minyak Bumi
+Kunci: A, C
+Poin: 2
+
+3. Tentukan apakah pernyataan berikut Benar (B) atau Salah (S):
+- Air mendidih pada suhu 100 derajat celcius [B]
+- Matahari terbit dari arah barat [S]
+- Oksigen memiliki rumus molekul O2 [B]
+
+4. Pasangkan pahlawan nasional berikut dengan daerah asalnya:
+- Pangeran Diponegoro -> Yogyakarta
+- Sultan Hasanuddin -> Makassar
+- Tuanku Imam Bonjol -> Sumatera Barat
+
+5. Lambang kimia untuk unsur emas murni adalah .....
+Kunci: Au
+Poin: 1
+
+6. Urutkan tahapan metamorfosis sempurna berikut dari awal:
+1. Telur
+2. Larva / Ulat
+3. Pupa / Kepompong
+4. Kupu-kupu dewasa
+Kunci: 1;2;3;4
+Poin: 2
+
+7. Jelaskan proses terjadinya siklus hidrologi (hujan) secara singkat dan berikan minimal 3 tahapan utamanya!
+Poin: 5`;
+    document.getElementById('raw-text-input').value = demo;
+});
+
+// Analyze & Parse Trigger
+document.getElementById('btn-parse').addEventListener('click', async () => {
+    const isUploadTab = document.getElementById('tab-upload-btn').classList.contains('active');
+    const formData = new FormData();
+    formData.append('action', 'parse');
+    formData.append('def_pg_pt', document.getElementById('def-pg-pt').value);
+    formData.append('def_pgk_pt', document.getElementById('def-pgk-pt').value);
+    formData.append('def_bs_pt', document.getElementById('def-bs-pt').value);
+    formData.append('def_mj_pt', document.getElementById('def-mj-pt').value);
+    formData.append('def_isian_pt', document.getElementById('def-isian-pt').value);
+    formData.append('def_esai_pt', document.getElementById('def-esai-pt').value);
+    formData.append('def_urut_pt', document.getElementById('def-urut-pt').value);
+    formData.append('def_materi', document.getElementById('def-materi').value);
+
+    if (isUploadTab) {
+        if (!fileInput.files || !fileInput.files[0]) {
+            showError("Silakan pilih file Word (.docx) atau teks (.txt) terlebih dahulu.");
+            return;
+        }
+        formData.append('file', fileInput.files[0]);
+    } else {
+        const text = document.getElementById('raw-text-input').value.trim();
+        if (!text) {
+            showError("Silakan masukkan teks naskah soal pada kotak yang tersedia.");
+            return;
+        }
+        formData.append('raw_text', text);
+    }
+
+    hideError();
+    document.getElementById('parse-loading').style.display = 'block';
+    document.getElementById('studio-section').style.display = 'none';
+
+    try {
+        const res = await fetch(ENDPOINT, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        document.getElementById('parse-loading').style.display = 'none';
+
+        if (!res.ok || !data.success) {
+            showError(data.error || "Gagal memproses soal.");
+            return;
+        }
+
+        parsedQuestions = data.questions || [];
+        renderStudio();
+        document.getElementById('studio-section').style.display = 'block';
+        document.getElementById('studio-section').scrollIntoView({ behavior: 'smooth' });
+    } catch (err) {
+        document.getElementById('parse-loading').style.display = 'none';
+        showError("Terjadi kesalahan koneksi saat mengirim data: " + err.message);
+    }
+});
+
+function showError(msg) {
+    const el = document.getElementById('alert-error');
+    el.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> ' + msg;
+    el.style.display = 'block';
+}
+
+function hideError() {
+    document.getElementById('alert-error').style.display = 'none';
+}
+
+// Render Studio & Summary
+function renderStudio() {
+    updateSummaryStats();
+    renderQuestionCards();
+}
+
+function updateSummaryStats() {
+    const totalQ = parsedQuestions.length;
+    const totalPt = parsedQuestions.reduce((acc, q) => acc + (parseInt(q.point) || 1), 0);
+    const missingKeys = parsedQuestions.filter(q => !q.key && !['ESAI', 'MJ', 'CAT'].includes(q.type)).length;
+
+    document.getElementById('stat-total-q').textContent = totalQ;
+    document.getElementById('stat-total-pt').textContent = totalPt;
+    document.getElementById('bar-summary-text').textContent = `${totalQ} Butir Soal Siap Diekspor`;
+    document.getElementById('bar-points-text').textContent = `(Total ${totalPt} Poin)`;
+
+    const statusEl = document.getElementById('stat-keys-status');
+    if (missingKeys > 0) {
+        statusEl.innerHTML = `<span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a"><i class="bi bi-exclamation-triangle-fill"></i> ${missingKeys} butir belum ada kunci</span>`;
+    } else {
+        statusEl.innerHTML = `<span class="badge" style="background:#d1fae5;color:#065f46;border:1px solid #a7f3d0"><i class="bi bi-check-circle-fill"></i> Kunci Lengkap</span>`;
+    }
+
+    // Type pills
+    const typesCount = {};
+    parsedQuestions.forEach(q => { typesCount[q.type] = (typesCount[q.type] || 0) + 1; });
+    const pillsEl = document.getElementById('stat-types-pills');
+    pillsEl.innerHTML = Object.entries(typesCount).map(([t, count]) => {
+        return `<span class="badge" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:.75rem"><strong>${t}</strong>: ${count}</span>`;
+    }).join('');
+}
+
+function renderQuestionCards() {
+    const container = document.getElementById('questions-container');
+    container.innerHTML = '';
+
+    const searchText = (document.getElementById('filter-search')?.value || '').toLowerCase();
+    const typeFilter = document.getElementById('filter-type')?.value || '';
+
+    parsedQuestions.forEach((q, qIndex) => {
+        const isMissingKey = !q.key && !['ESAI', 'MJ', 'CAT'].includes(q.type);
+        if (onlyMissingKeys && !isMissingKey) return;
+        if (typeFilter && q.type !== typeFilter) return;
+        if (searchText && !q.text.toLowerCase().includes(searchText)) return;
+
+        const card = document.createElement('div');
+        card.className = 'q-card' + (isMissingKey ? ' missing-key' : '');
+        card.id = `q-card-${qIndex}`;
+
+        // Header
+        const header = `
+            <div class="q-header">
+                <div style="display:flex;align-items:center;gap:.75rem">
+                    <span class="badge" style="background:var(--primary);color:#fff;font-size:.85rem;padding:.3rem .6rem">#${q.no || qIndex + 1}</span>
+                    <select class="form-select form-select-sm" style="width:auto;font-weight:600" onchange="changeQuestionType(${qIndex}, this.value)">
+                        <option value="PG" ${q.type === 'PG' ? 'selected' : ''}>PG (Pilihan Ganda)</option>
+                        <option value="PGK" ${q.type === 'PGK' ? 'selected' : ''}>PGK (Kompleks / Checklist)</option>
+                        <option value="BS" ${q.type === 'BS' ? 'selected' : ''}>BS (Benar / Salah)</option>
+                        <option value="MJ" ${q.type === 'MJ' ? 'selected' : ''}>MJ (Menjodohkan)</option>
+                        <option value="CAT" ${q.type === 'CAT' ? 'selected' : ''}>CAT (Kategorisasi)</option>
+                        <option value="ISIAN" ${q.type === 'ISIAN' ? 'selected' : ''}>ISIAN (Isian Singkat)</option>
+                        <option value="ESAI" ${q.type === 'ESAI' ? 'selected' : ''}>ESAI (Uraian)</option>
+                        <option value="URUT" ${q.type === 'URUT' ? 'selected' : ''}>URUT (Pengurutan)</option>
+                    </select>
+                </div>
+                <div style="display:flex;align-items:center;gap:.5rem">
+                    <div style="display:flex;align-items:center;gap:.25rem">
+                        <span style="font-size:.8rem;color:var(--muted)">Poin:</span>
+                        <input type="number" class="form-control form-control-sm" style="width:65px" value="${q.point || 1}" min="1" max="100" onchange="updateQuestionPoint(${qIndex}, this.value)">
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline text-danger" title="Hapus Soal" onclick="deleteQuestion(${qIndex})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Prompt Input
+        let bodyHtml = `
+            <div class="q-body">
+                <div style="margin-bottom:.75rem">
+                    <label style="font-weight:600;font-size:.85rem;color:var(--text);display:block;margin-bottom:.25rem">Teks Soal / Pertanyaan:</label>
+                    <textarea class="form-control" rows="2" style="width:100%;font-size:.9rem" onchange="updateQuestionText(${qIndex}, this.value)">${escapeHtml(q.text)}</textarea>
+                </div>
+        `;
+
+        // Sub-editor depending on Type
+        bodyHtml += renderTypeSpecificEditor(q, qIndex);
+
+        // Accordion for Stimulus & Kisi-kisi
+        bodyHtml += `
+            <details style="margin-top:.75rem;padding:.5rem;background:var(--bg);border-radius:6px;border:1px dashed var(--border)">
+                <summary style="cursor:pointer;font-size:.8rem;color:var(--primary);font-weight:600">
+                    <i class="bi bi-journal-text"></i> Stimulus &amp; Kisi-Kisi (Opsional)
+                </summary>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.5rem">
+                    <div>
+                        <label style="font-size:.75rem;color:var(--muted)">Judul Stimulus:</label>
+                        <input type="text" class="form-control form-control-sm" value="${escapeHtml(q.stimulus?.title || '')}" placeholder="Contoh: Wacana Sejarah" onchange="updateStimulusTitle(${qIndex}, this.value)">
+                    </div>
+                    <div>
+                        <label style="font-size:.75rem;color:var(--muted)">Materi Kisi-kisi:</label>
+                        <input type="text" class="form-control form-control-sm" value="${escapeHtml(q.kisi?.materi || '')}" placeholder="Contoh: Geografi" onchange="updateKisiMateri(${qIndex}, this.value)">
+                    </div>
+                    <div style="grid-column:1/-1">
+                        <label style="font-size:.75rem;color:var(--muted)">Isi Bacaan / Stimulus Teks:</label>
+                        <textarea class="form-control form-control-sm" rows="2" placeholder="Teks wacana atau bacaan jika soal ini merujuk teks..." onchange="updateStimulusContent(${qIndex}, this.value)">${escapeHtml(q.stimulus?.content || '')}</textarea>
+                    </div>
+                </div>
+            </details>
+        </div>`;
+
+        card.innerHTML = header + bodyHtml;
+        container.appendChild(card);
+    });
+}
+
+function renderTypeSpecificEditor(q, qIndex) {
+    let html = '';
+
+    if (q.type === 'PG') {
+        html += `<div style="margin-top:.5rem">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+                <label style="font-weight:600;font-size:.85rem;color:var(--text)">Pilihan Jawaban (Pilih 1 Kunci yang Benar):</label>
+                <button type="button" class="btn btn-sm btn-outline" style="font-size:.75rem" onclick="addOption(${qIndex})">+ Opsi</button>
+            </div>`;
+        (q.options || []).forEach((opt, oIdx) => {
+            const isChecked = q.key === opt.label;
+            html += `
+                <div class="opt-row">
+                    <input type="radio" name="pg_key_${qIndex}" value="${opt.label}" ${isChecked ? 'checked' : ''} onchange="setPgKey(${qIndex}, '${opt.label}')" title="Jadikan Kunci Jawaban">
+                    <strong style="width:22px;text-align:center">${opt.label}.</strong>
+                    <input type="text" class="form-control form-control-sm" value="${escapeHtml(opt.text)}" onchange="updateOptionText(${qIndex}, ${oIdx}, this.value)" style="flex:1">
+                    <button type="button" class="btn btn-sm btn-outline text-danger" style="padding:.1rem .35rem" onclick="deleteOption(${qIndex}, ${oIdx})"><i class="bi bi-x"></i></button>
+                </div>
+            `;
+        });
+        html += `</div>`;
+    } else if (q.type === 'PGK') {
+        const selectedKeys = (q.key || '').split(/[,;]/).map(k => k.trim().toUpperCase());
+        html += `<div style="margin-top:.5rem">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+                <label style="font-weight:600;font-size:.85rem;color:var(--text)">Pilihan Jawaban (Centang Semua Kunci yang Benar):</label>
+                <button type="button" class="btn btn-sm btn-outline" style="font-size:.75rem" onclick="addOption(${qIndex})">+ Opsi</button>
+            </div>`;
+        (q.options || []).forEach((opt, oIdx) => {
+            const isChecked = selectedKeys.includes(opt.label);
+            html += `
+                <div class="opt-row">
+                    <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="togglePgkKey(${qIndex}, '${opt.label}', this.checked)" title="Centang sebagai kunci">
+                    <strong style="width:22px;text-align:center">${opt.label}.</strong>
+                    <input type="text" class="form-control form-control-sm" value="${escapeHtml(opt.text)}" onchange="updateOptionText(${qIndex}, ${oIdx}, this.value)" style="flex:1">
+                    <button type="button" class="btn btn-sm btn-outline text-danger" style="padding:.1rem .35rem" onclick="deleteOption(${qIndex}, ${oIdx})"><i class="bi bi-x"></i></button>
+                </div>
+            `;
+        });
+        html += `<small style="color:var(--muted);display:block;margin-top:.25rem">Kunci Aktif: <strong>${escapeHtml(q.key || '(Belum dipilih)')}</strong></small></div>`;
+    } else if (q.type === 'BS') {
+        html += `<div style="margin-top:.5rem">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+                <label style="font-weight:600;font-size:.85rem;color:var(--text)">Daftar Pernyataan Benar / Salah:</label>
+                <button type="button" class="btn btn-sm btn-outline" style="font-size:.75rem" onclick="addBsStatement(${qIndex})">+ Pernyataan</button>
+            </div>`;
+        (q.statements || []).forEach((stmt, sIdx) => {
+            const isB = stmt.key === 'B';
+            const isS = stmt.key === 'S';
+            html += `
+                <div class="opt-row">
+                    <span style="font-weight:bold;width:30px;color:var(--primary)">P${sIdx + 1}</span>
+                    <input type="text" class="form-control form-control-sm" value="${escapeHtml(stmt.text)}" onchange="updateStatementText(${qIndex}, ${sIdx}, this.value)" style="flex:1">
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn ${isB ? 'btn-success' : 'btn-outline'}" style="padding:.15rem .5rem;font-size:.75rem" onclick="setStatementKey(${qIndex}, ${sIdx}, 'B')">Benar (B)</button>
+                        <button type="button" class="btn ${isS ? 'btn-danger' : 'btn-outline'}" style="padding:.15rem .5rem;font-size:.75rem" onclick="setStatementKey(${qIndex}, ${sIdx}, 'S')">Salah (S)</button>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline text-danger" style="padding:.1rem .35rem" onclick="deleteStatement(${qIndex}, ${sIdx})"><i class="bi bi-x"></i></button>
+                </div>
+            `;
+        });
+        html += `</div>`;
+    } else if (q.type === 'MJ') {
+        html += `<div style="margin-top:.5rem">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+                <label style="font-weight:600;font-size:.85rem;color:var(--text)">Pasangan Menjodohkan (Premis Kiri -> Pasangan Kanan):</label>
+                <button type="button" class="btn btn-sm btn-outline" style="font-size:.75rem" onclick="addMjPair(${qIndex})">+ Pasangan</button>
+            </div>`;
+        (q.pairs || []).forEach((pair, pIdx) => {
+            html += `
+                <div class="opt-row">
+                    <span style="font-weight:bold;width:38px;color:var(--primary)">MJ${pIdx + 1}</span>
+                    <input type="text" class="form-control form-control-sm" value="${escapeHtml(pair.left)}" placeholder="Premis Kiri" onchange="updatePairLeft(${qIndex}, ${pIdx}, this.value)" style="flex:1">
+                    <i class="bi bi-arrow-right" style="color:var(--muted)"></i>
+                    <input type="text" class="form-control form-control-sm" value="${escapeHtml(pair.right)}" placeholder="Pasangan Kanan (Kunci)" onchange="updatePairRight(${qIndex}, ${pIdx}, this.value)" style="flex:1">
+                    <button type="button" class="btn btn-sm btn-outline text-danger" style="padding:.1rem .35rem" onclick="deletePair(${qIndex}, ${pIdx})"><i class="bi bi-x"></i></button>
+                </div>
+            `;
+        });
+        html += `</div>`;
+    } else if (q.type === 'URUT') {
+        html += `<div style="margin-top:.5rem">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+                <label style="font-weight:600;font-size:.85rem;color:var(--text)">Tahapan / Item Pengurutan:</label>
+                <button type="button" class="btn btn-sm btn-outline" style="font-size:.75rem" onclick="addOrderingItem(${qIndex})">+ Item</button>
+            </div>`;
+        (q.ordering_items || []).forEach((item, uIdx) => {
+            const itemTxt = typeof item === 'string' ? item : (item.text || '');
+            html += `
+                <div class="opt-row">
+                    <span style="font-weight:bold;width:28px;color:var(--primary)">U${uIdx + 1}</span>
+                    <input type="text" class="form-control form-control-sm" value="${escapeHtml(itemTxt)}" onchange="updateOrderingItem(${qIndex}, ${uIdx}, this.value)" style="flex:1">
+                    <button type="button" class="btn btn-sm btn-outline text-danger" style="padding:.1rem .35rem" onclick="deleteOrderingItem(${qIndex}, ${uIdx})"><i class="bi bi-x"></i></button>
+                </div>
+            `;
+        });
+        html += `
+            <div style="margin-top:.5rem;display:flex;align-items:center;gap:.5rem">
+                <span style="font-size:.85rem;font-weight:600">Urutan Kunci Benar:</span>
+                <input type="text" class="form-control form-control-sm" value="${escapeHtml(q.key || '')}" placeholder="Contoh: 1;2;4;3" style="max-width:200px" onchange="updateQuestionKey(${qIndex}, this.value)">
+                <small style="color:var(--muted)">Gunakan titik koma (;)</small>
+            </div>
+        </div>`;
+    } else if (q.type === 'ISIAN') {
+        html += `<div style="margin-top:.5rem">
+            <label style="font-weight:600;font-size:.85rem;color:var(--text)">Kunci Jawaban Isian Singkat:</label>
+            <input type="text" class="form-control form-control-sm" value="${escapeHtml(q.key || '')}" placeholder="Contoh: Jakarta | DKI Jakarta (gunakan | untuk variasi jawaban)" onchange="updateQuestionKey(${qIndex}, this.value)">
+            <small style="color:var(--muted);display:block;margin-top:.25rem">Tips: Gunakan tanda pipa (|) untuk jawaban alternatif atau multi-blank.</small>
+        </div>`;
+    } else if (q.type === 'ESAI') {
+        html += `<div style="margin-top:.5rem">
+            <label style="font-weight:600;font-size:.85rem;color:var(--text)">Pedoman / Rubrik Penilaian Jawaban (Opsional):</label>
+            <textarea class="form-control form-control-sm" rows="2" placeholder="Catatan rubrik penilaian esai untuk korektor..." onchange="updateQuestionKey(${qIndex}, this.value)">${escapeHtml(q.key || '')}</textarea>
+        </div>`;
+    } else {
+        html += `<div style="margin-top:.5rem">
+            <label style="font-weight:600;font-size:.85rem;color:var(--text)">Kunci Jawaban:</label>
+            <input type="text" class="form-control form-control-sm" value="${escapeHtml(q.key || '')}" onchange="updateQuestionKey(${qIndex}, this.value)">
+        </div>`;
+    }
+
+    return html;
+}
+
+// Model Mutators
+function changeQuestionType(qIndex, newType) {
+    const q = parsedQuestions[qIndex];
+    q.type = newType;
+    if (newType === 'PG' && (!q.options || q.options.length === 0)) {
+        q.options = [{label:'A', text:''}, {label:'B', text:''}, {label:'C', text:''}, {label:'D', text:''}];
+    } else if (newType === 'BS' && (!q.statements || q.statements.length === 0)) {
+        q.statements = [{label:'P1', text:'', key:'B'}, {label:'P2', text:'', key:'S'}];
+        q.key = 'B|S';
+    } else if (newType === 'MJ' && (!q.pairs || q.pairs.length === 0)) {
+        q.pairs = [{left:'', right:''}, {left:'', right:''}];
+    } else if (newType === 'URUT' && (!q.ordering_items || q.ordering_items.length === 0)) {
+        q.ordering_items = ['', '', ''];
+        q.key = '1;2;3';
+    }
+    renderStudio();
+}
+
+function updateQuestionText(qIndex, val) { parsedQuestions[qIndex].text = val; }
+function updateQuestionKey(qIndex, val) { parsedQuestions[qIndex].key = val; updateSummaryStats(); }
+function updateQuestionPoint(qIndex, val) { parsedQuestions[qIndex].point = parseInt(val) || 1; updateSummaryStats(); }
+
+function setPgKey(qIndex, label) {
+    parsedQuestions[qIndex].key = label;
+    updateSummaryStats();
+    renderQuestionCards();
+}
+
+function togglePgkKey(qIndex, label, checked) {
+    const q = parsedQuestions[qIndex];
+    let keys = (q.key || '').split(/[,;]/).map(k => k.trim().toUpperCase()).filter(Boolean);
+    if (checked && !keys.includes(label)) keys.push(label);
+    else if (!checked) keys = keys.filter(k => k !== label);
+    keys.sort();
+    q.key = keys.join(', ');
+    updateSummaryStats();
+    renderQuestionCards();
+}
+
+function updateOptionText(qIndex, oIdx, val) { parsedQuestions[qIndex].options[oIdx].text = val; }
+function addOption(qIndex) {
+    const q = parsedQuestions[qIndex];
+    q.options = q.options || [];
+    const nextChar = String.fromCharCode(65 + q.options.length);
+    q.options.push({label: nextChar, text: ''});
+    renderQuestionCards();
+}
+function deleteOption(qIndex, oIdx) {
+    parsedQuestions[qIndex].options.splice(oIdx, 1);
+    parsedQuestions[qIndex].options.forEach((opt, idx) => { opt.label = String.fromCharCode(65 + idx); });
+    renderQuestionCards();
+}
+
+function addBsStatement(qIndex) {
+    const q = parsedQuestions[qIndex];
+    q.statements = q.statements || [];
+    q.statements.push({label: `P${q.statements.length + 1}`, text: '', key: 'B'});
+    q.key = q.statements.map(s => s.key).join('|');
+    renderQuestionCards();
+}
+function setStatementKey(qIndex, sIdx, key) {
+    const q = parsedQuestions[qIndex];
+    q.statements[sIdx].key = key;
+    q.key = q.statements.map(s => s.key).join('|');
+    updateSummaryStats();
+    renderQuestionCards();
+}
+function updateStatementText(qIndex, sIdx, val) { parsedQuestions[qIndex].statements[sIdx].text = val; }
+function deleteStatement(qIndex, sIdx) {
+    parsedQuestions[qIndex].statements.splice(sIdx, 1);
+    parsedQuestions[qIndex].statements.forEach((stmt, idx) => { stmt.label = `P${idx + 1}`; });
+    parsedQuestions[qIndex].key = parsedQuestions[qIndex].statements.map(s => s.key).join('|');
+    renderQuestionCards();
+}
+
+function addMjPair(qIndex) {
+    parsedQuestions[qIndex].pairs = parsedQuestions[qIndex].pairs || [];
+    parsedQuestions[qIndex].pairs.push({left: '', right: ''});
+    renderQuestionCards();
+}
+function updatePairLeft(qIndex, pIdx, val) { parsedQuestions[qIndex].pairs[pIdx].left = val; }
+function updatePairRight(qIndex, pIdx, val) { parsedQuestions[qIndex].pairs[pIdx].right = val; }
+function deletePair(qIndex, pIdx) {
+    parsedQuestions[qIndex].pairs.splice(pIdx, 1);
+    renderQuestionCards();
+}
+
+function addOrderingItem(qIndex) {
+    parsedQuestions[qIndex].ordering_items = parsedQuestions[qIndex].ordering_items || [];
+    parsedQuestions[qIndex].ordering_items.push('');
+    renderQuestionCards();
+}
+function updateOrderingItem(qIndex, uIdx, val) { parsedQuestions[qIndex].ordering_items[uIdx] = val; }
+function deleteOrderingItem(qIndex, uIdx) {
+    parsedQuestions[qIndex].ordering_items.splice(uIdx, 1);
+    renderQuestionCards();
+}
+
+function updateStimulusTitle(qIndex, val) {
+    parsedQuestions[qIndex].stimulus = parsedQuestions[qIndex].stimulus || {};
+    parsedQuestions[qIndex].stimulus.title = val;
+}
+function updateStimulusContent(qIndex, val) {
+    parsedQuestions[qIndex].stimulus = parsedQuestions[qIndex].stimulus || {};
+    parsedQuestions[qIndex].stimulus.content = val;
+}
+function updateKisiMateri(qIndex, val) {
+    parsedQuestions[qIndex].kisi = parsedQuestions[qIndex].kisi || {};
+    parsedQuestions[qIndex].kisi.materi = val;
+}
+
+function deleteQuestion(qIndex) {
+    if (confirm(`Apakah Anda yakin ingin menghapus soal nomor ${qIndex + 1}?`)) {
+        parsedQuestions.splice(qIndex, 1);
+        parsedQuestions.forEach((q, idx) => { q.no = idx + 1; });
+        renderStudio();
+    }
+}
+
+document.getElementById('btn-add-question').addEventListener('click', () => {
+    const nextNo = parsedQuestions.length + 1;
+    parsedQuestions.push({
+        id: nextNo,
+        no: nextNo,
+        type: 'PG',
+        text: '',
+        key: '',
+        point: 1,
+        options: [
+            {label: 'A', text: ''},
+            {label: 'B', text: ''},
+            {label: 'C', text: ''},
+            {label: 'D', text: ''}
+        ],
+        stimulus: {title: '', content: ''},
+        kisi: {materi: document.getElementById('def-materi').value || 'Pengetahuan Umum', indikator: `Peserta didik dapat menyelesaikan soal nomor ${nextNo}`}
+    });
+    renderStudio();
+    // Scroll to bottom
+    setTimeout(() => {
+        const lastCard = document.getElementById(`q-card-${nextNo - 1}`);
+        if (lastCard) lastCard.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+});
+
+// Filters
+function applyFilters() { renderQuestionCards(); }
+function toggleMissingKeysFilter() {
+    onlyMissingKeys = !onlyMissingKeys;
+    const btn = document.getElementById('filter-missing-keys-btn');
+    btn.classList.toggle('btn-warning', onlyMissingKeys);
+    btn.classList.toggle('btn-outline', !onlyMissingKeys);
+    renderQuestionCards();
+}
+
+// Generate DOCX Handler
+async function triggerGenerateDocx() {
+    if (parsedQuestions.length === 0) {
+        showError("Tidak ada soal untuk diekspor.");
+        return;
+    }
+
+    const missingKeys = parsedQuestions.filter(q => !q.key && !['ESAI', 'MJ', 'CAT'].includes(q.type));
+    if (missingKeys.length > 0) {
+        const proceed = confirm(`Terdapat ${missingKeys.length} butir soal yang belum memiliki kunci jawaban. Apakah Anda tetap ingin membuat file DOCX CBT?`);
+        if (!proceed) {
+            onlyMissingKeys = true;
+            document.getElementById('filter-missing-keys-btn').classList.add('btn-warning');
+            renderQuestionCards();
+            return;
+        }
+    }
+
+    const btnTop = document.getElementById('btn-generate-top');
+    const btnBtm = document.getElementById('btn-generate-bottom');
+    btnTop.disabled = true;
+    btnBtm.disabled = true;
+    const originalText = btnBtm.innerHTML;
+    btnBtm.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Menyusun Template DOCX...';
+
+    try {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = ENDPOINT;
+
+        const actionInp = document.createElement('input');
+        actionInp.type = 'hidden';
+        actionInp.name = 'action';
+        actionInp.value = 'generate';
+        form.appendChild(actionInp);
+
+        const jsonInp = document.createElement('input');
+        jsonInp.type = 'hidden';
+        jsonInp.name = 'questions_json';
+        jsonInp.value = JSON.stringify(parsedQuestions);
+        form.appendChild(jsonInp);
+
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    } catch (err) {
+        showError("Gagal men-generate file: " + err.message);
+    } finally {
+        setTimeout(() => {
+            btnTop.disabled = false;
+            btnBtm.disabled = false;
+            btnBtm.innerHTML = originalText;
+        }, 1500);
+    }
+}
+
+document.getElementById('btn-generate-top').addEventListener('click', triggerGenerateDocx);
+document.getElementById('btn-generate-bottom').addEventListener('click', triggerGenerateDocx);
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+</script>
+{% endblock %}

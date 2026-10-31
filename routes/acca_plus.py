@@ -1,3 +1,6 @@
+import base64
+import copy
+import csv
 import importlib.util
 import io
 import json
@@ -5,9 +8,12 @@ import os
 import re
 import zipfile
 
+import docx
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from flask import Blueprint, jsonify, render_template, request, send_file, url_for
 
-from routes._helpers import NO_FILE_SINGLE, NO_FILE_MULTIPLE, log_error
+from routes._helpers import NO_FILE_SINGLE, NO_FILE_MULTIPLE, log_error, safe_int, safe_float
 from utils.pymupdf import import_pymupdf
 
 bp = Blueprint("acca_plus", __name__)
@@ -144,11 +150,46 @@ _RE_NAMA = re.compile(
     re.IGNORECASE,
 )
 
+# Guru / Pegawai (NIP & NUPTK):
+_RE_NIP_LABELED = re.compile(r"NIP\s*[:\-]?\s*(\d{18})", re.IGNORECASE)
+_RE_NIP_BARE = re.compile(r"\b((?:19|20)\d{16})\b")
+_RE_NUPTK_LABELED = re.compile(r"NUPTK\s*[:\-]?\s*(\d{16})", re.IGNORECASE)
+_RE_NUPTK_BARE = re.compile(r"\b(\d{16})\b")
+_RE_NAMA_GURU = re.compile(
+    r"(?:Nama\s+(?:Guru|Pegawai|PNS|GTK|Pendidik|Lengkap)|Nama)\s*[:\-]\s*([^\n\r,;]{3,80})",
+    re.IGNORECASE,
+)
+
+# Surat Dinas / SK / Kwitansi:
+_RE_NO_SURAT = re.compile(
+    r"(?:Nomor\s+(?:Surat|SK|Naskah)|Nomor|No\.?\s*(?:Surat|SK)?)\s*[:\-]\s*([A-Za-z0-9\/\.\-_]{3,60})",
+    re.IGNORECASE,
+)
+_RE_PERIHAL = re.compile(
+    r"(?:Perihal|Hal|Tentang|Mata\s+Pelajaran|Mapel|Judul)\s*[:\-]\s*([^\n\r,;]{3,80})",
+    re.IGNORECASE,
+)
+
 
 def _sanitize(text: str) -> str:
     """Remove characters that are invalid in filenames and trim whitespace."""
     text = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", text)
     text = re.sub(r"[\s_]+", "_", text.strip())
+    return text[:80]
+
+
+def _clean_nama(text: str) -> str:
+    """Clean extracted student name, removing trailing fields, prefixes, and invalid chars."""
+    if not text:
+        return ""
+    text = re.split(
+        r"\b(?:NISN|NIS|Kelas|Tempat|TTL|Jenis Kelamin|L/P|Tahun|Semester|Agama|Kurikulum)\b",
+        text,
+        flags=re.IGNORECASE,
+    )[0]
+    text = re.sub(r"^[\s:\-\._#]+", "", text)
+    text = re.sub(r'[<>:"/\\|?*\x00-\x1f]', " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
     return text[:80]
 
 
@@ -166,7 +207,7 @@ def _extract_nisn_and_nama(text: str) -> tuple[str, str]:
     nama = ""
     m = _RE_NAMA.search(text)
     if m:
-        nama = _sanitize(m.group(1))
+        nama = _sanitize(_clean_nama(m.group(1)))
 
     return nisn, nama
 
@@ -275,6 +316,953 @@ def rename_pdf():
         mimetype="application/zip",
         as_attachment=True,
         download_name="renamed_pdfs.zip",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Split PDF by Profile (Siswa, Guru/GTK, Surat Dinas, atau Label Bebas)
+# ---------------------------------------------------------------------------
+
+PROFILE_METADATA = {
+    "siswa": {
+        "label": "Siswa / Santri",
+        "id_col": "NISN",
+        "name_col": "Nama Siswa",
+        "fallback_prefix": "Siswa",
+    },
+    "guru": {
+        "label": "Guru / GTK / Pegawai",
+        "id_col": "NIP / NUPTK",
+        "name_col": "Nama Guru / Pegawai",
+        "fallback_prefix": "Pegawai",
+    },
+    "surat": {
+        "label": "Surat Dinas / SK / Kwitansi",
+        "id_col": "Nomor Surat / SK",
+        "name_col": "Perihal / Tentang",
+        "fallback_prefix": "Surat",
+    },
+    "custom": {
+        "label": "Kustom / Label Bebas",
+        "id_col": "ID",
+        "name_col": "Nama / Keterangan",
+        "fallback_prefix": "Dokumen",
+    },
+}
+
+
+def _extract_id_and_nama_by_profile(
+    text: str,
+    profile: str = "siswa",
+    custom_label_id: str = "",
+    custom_label_name: str = "",
+    re_id_custom=None,
+    re_name_custom=None,
+) -> tuple[str, str]:
+    """Extract (id_val, name_val) according to selected profile or custom labels."""
+    id_val = ""
+    name_val = ""
+
+    # 1. Custom regex if provided has top priority
+    if re_id_custom:
+        m = re_id_custom.search(text)
+        id_val = m.group(1) if (m and m.lastindex) else (m.group(0) if m else "")
+    if re_name_custom:
+        m = re_name_custom.search(text)
+        raw_name = m.group(1) if (m and m.lastindex) else (m.group(0) if m else "")
+        name_val = _clean_nama(raw_name)
+
+    if id_val and name_val:
+        return id_val.strip(), name_val.strip()
+
+    # 2. Extract according to profile
+    if profile == "guru":
+        if not id_val:
+            m = _RE_NIP_LABELED.search(text)
+            if m:
+                id_val = m.group(1)
+            else:
+                m = _RE_NIP_BARE.search(text)
+                if m:
+                    id_val = m.group(1)
+                else:
+                    m = _RE_NUPTK_LABELED.search(text) or _RE_NUPTK_BARE.search(text)
+                    if m:
+                        id_val = m.group(1)
+        if not name_val:
+            m = _RE_NAMA_GURU.search(text)
+            if m:
+                name_val = _clean_nama(m.group(1))
+
+    elif profile == "surat":
+        if not id_val:
+            m = _RE_NO_SURAT.search(text)
+            if m:
+                id_val = m.group(1).strip()
+        if not name_val:
+            m = _RE_PERIHAL.search(text)
+            if m:
+                name_val = _clean_nama(m.group(1))
+
+    elif profile == "custom":
+        if custom_label_id and not id_val:
+            pat = rf"(?:{re.escape(custom_label_id.strip())})\s*[:\-\. ]\s*([^\n\r,;]{{2,80}})"
+            m = re.search(pat, text, re.IGNORECASE)
+            if m:
+                id_val = m.group(1).strip()
+        if custom_label_name and not name_val:
+            pat = rf"(?:{re.escape(custom_label_name.strip())})\s*[:\-\. ]\s*([^\n\r,;]{{2,80}})"
+            m = re.search(pat, text, re.IGNORECASE)
+            if m:
+                name_val = _clean_nama(m.group(1))
+
+    else:  # default "siswa"
+        if not id_val:
+            m = _RE_NISN_LABELED.search(text)
+            if m:
+                id_val = m.group(1)
+            else:
+                m = _RE_NISN_BARE.search(text)
+                if m:
+                    id_val = m.group(1)
+        if not name_val:
+            m = _RE_NAMA.search(text)
+            if m:
+                name_val = _clean_nama(m.group(1))
+
+    return id_val.strip(), name_val.strip()
+
+
+def _format_student_filename(
+    index: int,
+    start_page: int,
+    end_page: int,
+    nisn: str,
+    nama: str,
+    naming_pattern: str,
+    prefix: str,
+    uppercase_name: bool,
+    used_names: set[str],
+    profile: str = "siswa",
+) -> str:
+    """Format a clean, readable filename for a split PDF segment."""
+    clean_id = _sanitize(nisn).strip("_")
+    clean_name = _sanitize(nama).strip("_")
+    if uppercase_name and clean_name:
+        clean_name = clean_name.upper()
+
+    clean_prefix = _sanitize(prefix).strip("_")
+    meta = PROFILE_METADATA.get(profile, PROFILE_METADATA["siswa"])
+    fallback_base = clean_prefix or meta["fallback_prefix"]
+    fallback = f"{fallback_base}_{index:02d}_Hal_{start_page + 1}-{end_page}"
+
+    if naming_pattern == "no_nisn_nama":
+        parts = [f"{index:02d}"]
+        if clean_prefix:
+            parts.insert(0, clean_prefix)
+        if clean_id:
+            parts.append(clean_id)
+        if clean_name:
+            parts.append(clean_name)
+        if not clean_id and not clean_name:
+            parts.append(fallback)
+        base = "_".join(parts)
+
+    elif naming_pattern == "prefix_nisn_nama":
+        pref = clean_prefix or fallback_base
+        parts = [pref]
+        if clean_id:
+            parts.append(clean_id)
+        if clean_name:
+            parts.append(clean_name)
+        if not clean_id and not clean_name:
+            parts.append(fallback)
+        base = "_".join(parts)
+
+    elif naming_pattern == "nama_nisn":
+        parts = []
+        if clean_prefix:
+            parts.append(clean_prefix)
+        if clean_name:
+            parts.append(clean_name)
+        if clean_id:
+            parts.append(clean_id)
+        if not clean_id and not clean_name:
+            parts.append(fallback)
+        base = "_".join(parts)
+
+    else:  # default: "nisn_nama" (ID_Name)
+        parts = []
+        if clean_prefix:
+            parts.append(clean_prefix)
+        if clean_id:
+            parts.append(clean_id)
+        if clean_name:
+            parts.append(clean_name)
+        if not clean_id and not clean_name:
+            parts.append(fallback)
+        base = "_".join(parts)
+
+    filename = f"{base}.pdf"
+    return _unique_name(filename, used_names)
+
+
+def _detect_student_segments(
+    doc,
+    mode: str = "auto",
+    profile: str = "siswa",
+    custom_label_id: str = "",
+    custom_label_name: str = "",
+    fixed_pages: int = 1,
+    keyword: str = "",
+    re_nisn_custom=None,
+    re_nama_custom=None,
+    naming_pattern: str = "nisn_nama",
+    prefix: str = "",
+    uppercase_name: bool = True,
+) -> tuple[list[dict], list[str]]:
+    """Detect page ranges and identifiers in a bulk PDF based on selected profile.
+
+    Returns: (segments_list, warnings_list)
+    """
+    total_pages = len(doc)
+    if total_pages == 0:
+        return [], ["Dokumen PDF kosong (0 halaman)."]
+
+    warnings: list[str] = []
+    meta = PROFILE_METADATA.get(profile, PROFILE_METADATA["siswa"])
+    id_col = custom_label_id.strip() or meta["id_col"]
+    name_col = custom_label_name.strip() or meta["name_col"]
+
+    pages_meta = []
+    has_any_text = False
+
+    for i in range(total_pages):
+        page = doc[i]
+        text = page.get_text() or ""
+        if text.strip():
+            has_any_text = True
+
+        id_val, name_val = _extract_id_and_nama_by_profile(
+            text=text,
+            profile=profile,
+            custom_label_id=custom_label_id,
+            custom_label_name=custom_label_name,
+            re_id_custom=re_nisn_custom,
+            re_name_custom=re_nama_custom,
+        )
+
+        pages_meta.append({
+            "page_idx": i,
+            "text": text,
+            "id_val": id_val.strip(),
+            "name_val": name_val.strip(),
+        })
+
+    if not has_any_text:
+        warnings.append(
+            "Tidak ditemukan teks digital pada PDF ini (kemungkinan dokumen hasil scan / gambar murni). "
+            "Gunakan mode 'Jumlah Halaman Tetap' untuk memotong per halaman, atau jalankan OCR PDF terlebih dahulu."
+        )
+
+    # Determine boundary cut points (0-indexed page start indices)
+    boundaries = [0]
+
+    if mode == "fixed":
+        fp = max(1, int(fixed_pages))
+        for p in range(fp, total_pages, fp):
+            boundaries.append(p)
+
+    elif mode == "keyword":
+        kw = (keyword or "").strip().lower()
+        if not kw:
+            warnings.append("Kata kunci pemisah kosong. Beralih ke deteksi otomatis.")
+            mode = "auto"
+        else:
+            for i in range(1, total_pages):
+                if kw in pages_meta[i]["text"].lower():
+                    boundaries.append(i)
+
+    if mode == "auto":
+        cur_id = pages_meta[0]["id_val"]
+        cur_name = pages_meta[0]["name_val"].lower()
+
+        for i in range(1, total_pages):
+            p_id = pages_meta[i]["id_val"]
+            p_name = pages_meta[i]["name_val"].lower()
+
+            is_new = False
+            # Check 1: ID detected and changed
+            if p_id and cur_id and p_id != cur_id:
+                is_new = True
+            # Check 2: ID appears after previous page didn't have one, with different name
+            elif p_id and not cur_id and (p_name and p_name != cur_name):
+                is_new = True
+            # Check 3: Name changed
+            elif p_name and cur_name and p_name != cur_name:
+                is_new = True
+            # Check 4: A new ID appears on page i after >= 1 page
+            elif p_id and not cur_id and (i - boundaries[-1] >= 1):
+                if p_name:
+                    is_new = True
+
+            if is_new:
+                boundaries.append(i)
+                cur_id = p_id
+                cur_name = p_name
+            else:
+                if not cur_id and p_id:
+                    cur_id = p_id
+                if not cur_name and p_name:
+                    cur_name = p_name
+
+    boundaries.append(total_pages)
+    clean_boundaries = []
+    for b in boundaries:
+        if not clean_boundaries or b > clean_boundaries[-1]:
+            clean_boundaries.append(b)
+
+    used_names: set[str] = set()
+    segments = []
+
+    for idx in range(len(clean_boundaries) - 1):
+        start = clean_boundaries[idx]
+        end = clean_boundaries[idx + 1]
+        pages_count = end - start
+
+        # Best ID and Name in this page span
+        seg_id = ""
+        seg_name = ""
+        for p in range(start, end):
+            if not seg_id and pages_meta[p]["id_val"]:
+                seg_id = pages_meta[p]["id_val"]
+            if not seg_name and pages_meta[p]["name_val"]:
+                seg_name = pages_meta[p]["name_val"]
+            if seg_id and seg_name:
+                break
+
+        out_name = _format_student_filename(
+            index=idx + 1,
+            start_page=start,
+            end_page=end,
+            nisn=seg_id,
+            nama=seg_name,
+            naming_pattern=naming_pattern,
+            prefix=prefix,
+            uppercase_name=uppercase_name,
+            used_names=used_names,
+            profile=profile,
+        )
+
+        display_range = f"Hal {start + 1}" if pages_count == 1 else f"Hal {start + 1} - {end}"
+
+        status_notes = []
+        if not seg_id:
+            status_notes.append(f"{id_col} tdk ditemukan")
+        if not seg_name:
+            status_notes.append(f"{name_col} tdk ditemukan")
+        status_text = ", ".join(status_notes) if status_notes else "Lengkap"
+
+        formatted_name = seg_name.upper() if (uppercase_name and seg_name) else seg_name
+
+        segments.append({
+            "index": idx + 1,
+            "start_page": start,
+            "end_page": end,
+            "pages_count": pages_count,
+            "page_range_display": display_range,
+            "nisn": seg_id,        # backward compatible alias
+            "nama": formatted_name, # backward compatible alias
+            "id_val": seg_id,
+            "name_val": formatted_name,
+            "filename": out_name,
+            "status": status_text,
+        })
+
+    if len(segments) <= 1 and total_pages > 2 and mode == "auto":
+        warnings.append(
+            f"Hanya 1 entitas terdeteksi pada seluruh dokumen untuk profil '{meta['label']}'. "
+            f"Pastikan dokumen memuat teks {id_col}/{name_col} atau gunakan mode 'Jumlah Halaman Tetap'."
+        )
+
+    return segments, warnings
+
+
+def _split_student_pdf_to_zip(
+    pdf_bytes: bytes,
+    original_filename: str,
+    segments: list[dict],
+    mode_label: str,
+    profile_label: str = "Siswa / Santri",
+    id_col_label: str = "NISN",
+    name_col_label: str = "Nama Siswa",
+) -> tuple[bytes, str]:
+    """Split the PDF into individual PDFs and pack into a ZIP archive with summary."""
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    zip_buf = io.BytesIO()
+
+    stem = os.path.splitext(original_filename)[0]
+    zip_filename = f"{_sanitize(stem)}_split_dokumen.zip"
+
+    summary_lines = [
+        "=" * 88,
+        "                    ACCA TOOLS — BULK PDF SPLIT SUMMARY",
+        "=" * 88,
+        f"Dokumen Asal   : {original_filename}",
+        f"Profil Dokumen : {profile_label}",
+        f"Total Halaman  : {len(doc)}",
+        f"Total File     : {len(segments)} file dihasilkan",
+        f"Metode Split   : {mode_label}",
+        "-" * 88,
+        f"{'No.':<4} | {'Rentang Hal':<14} | {id_col_label:<14} | {name_col_label:<24} | {'Nama File Output'}",
+        "-" * 88,
+    ]
+
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for seg in segments:
+            start = seg["start_page"]
+            end = seg["end_page"]
+            filename = seg["filename"]
+
+            subdoc = fitz.open()
+            subdoc.insert_pdf(doc, from_page=start, to_page=end - 1)
+            sub_bytes = subdoc.tobytes(garbage=3, deflate=True)
+            subdoc.close()
+
+            zf.writestr(filename, sub_bytes)
+
+            id_disp = (seg.get("id_val") or seg.get("nisn") or "-")[:14]
+            name_disp = (seg.get("name_val") or seg.get("nama") or "-")[:24]
+            line = f"{seg['index']:<4} | {seg['page_range_display']:<14} | {id_disp:<14} | {name_disp:<24} | {filename}"
+            summary_lines.append(line)
+
+        summary_lines.append("=" * 88)
+        zf.writestr("_split_summary.txt", "\n".join(summary_lines).encode("utf-8"))
+
+    doc.close()
+    zip_buf.seek(0)
+    return zip_buf.getvalue(), zip_filename
+
+
+@bp.route("/split-pdf")
+def split_pdf_page():
+    return render_template(
+        "tools/split_student_pdf.html",
+        title="Split by Profile / Student",
+        description=(
+            "Pecah file PDF gabungan (Rapor, Kartu Ujian, SKP Guru, Slip Gaji, SK Dinas) "
+            "menjadi file PDF terpisah secara otomatis berdasarkan profil Siswa (NISN), Guru (NIP), atau Label Kustom."
+        ),
+        endpoint="/acca-plus/split-pdf",
+        accept=".pdf",
+    )
+
+
+@bp.route("/split-pdf", methods=["POST"])
+def split_pdf():
+    if fitz is None:
+        return jsonify(error="PyMuPDF (fitz) is not installed on the server."), 500
+
+    files = request.files.getlist("files")
+    if not files or not files[0].filename:
+        return jsonify(error=NO_FILE_SINGLE), 400
+
+    action = (request.form.get("action") or "split").strip().lower()
+    doc_profile = (request.form.get("doc_profile") or "siswa").strip().lower()
+    custom_label_id = (request.form.get("custom_label_id") or "").strip()
+    custom_label_name = (request.form.get("custom_label_name") or "").strip()
+
+    mode = (request.form.get("mode") or "auto").strip().lower()
+    fixed_pages = safe_int(request.form.get("fixed_pages"), default=1, min_val=1, max_val=500)
+    keyword = (request.form.get("keyword") or "").strip()
+    naming_pattern = (request.form.get("naming_pattern") or "nisn_nama").strip().lower()
+    prefix = (request.form.get("prefix") or "").strip()
+    if "uppercase_name" in request.form:
+        uppercase_name = request.form.get("uppercase_name") in ("1", "true", "on", True)
+    else:
+        uppercase_name = True
+
+    custom_nisn_pattern = (request.form.get("nisn_pattern") or "").strip()
+    custom_nama_pattern = (request.form.get("nama_pattern") or "").strip()
+
+    try:
+        re_nisn_custom = re.compile(custom_nisn_pattern, re.IGNORECASE) if custom_nisn_pattern else None
+        re_nama_custom = re.compile(custom_nama_pattern, re.IGNORECASE) if custom_nama_pattern else None
+    except re.error as e:
+        return jsonify(error=f"Pola regex tidak valid: {e}"), 400
+
+    upload = files[0]
+    filename = upload.filename or "bulk_documents.pdf"
+    try:
+        pdf_bytes = upload.read()
+        if not pdf_bytes:
+            return jsonify(error="File yang diunggah kosong."), 400
+
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        if doc.is_encrypted:
+            doc.close()
+            return jsonify(error="File PDF terenkripsi/password. Harap buka kunci terlebih dahulu."), 400
+
+        total_pages = len(doc)
+        if total_pages == 0:
+            doc.close()
+            return jsonify(error="File PDF tidak memiliki halaman."), 400
+
+        segments, warnings = _detect_student_segments(
+            doc,
+            mode=mode,
+            profile=doc_profile,
+            custom_label_id=custom_label_id,
+            custom_label_name=custom_label_name,
+            fixed_pages=fixed_pages,
+            keyword=keyword,
+            re_nisn_custom=re_nisn_custom,
+            re_nama_custom=re_nama_custom,
+            naming_pattern=naming_pattern,
+            prefix=prefix,
+            uppercase_name=uppercase_name,
+        )
+        doc.close()
+
+    except Exception as e:
+        log_error(e, f"split_pdf.parse.{filename}")
+        return jsonify(error=f"Gagal memproses dokumen PDF: {e}"), 400
+
+    if not segments:
+        return jsonify(error="Tidak ada segmen dokumen yang dapat dipisahkan."), 400
+
+    meta = PROFILE_METADATA.get(doc_profile, PROFILE_METADATA["siswa"])
+    id_col_label = custom_label_id or meta["id_col"]
+    name_col_label = custom_label_name or meta["name_col"]
+    profile_label = meta["label"]
+
+    if action == "preview":
+        return jsonify(
+            success=True,
+            filename=filename,
+            total_pages=total_pages,
+            total_students=len(segments),
+            segments=segments,
+            warnings=warnings,
+            mode=mode,
+            doc_profile=doc_profile,
+            id_col_label=id_col_label,
+            name_col_label=name_col_label,
+            profile_label=profile_label,
+        )
+
+    mode_labels = {
+        "auto": f"Auto-detect Pergantian ({id_col_label} / {name_col_label})",
+        "fixed": f"Jumlah Halaman Tetap ({fixed_pages} hal/file)",
+        "keyword": f"Kata Kunci Halaman Pertama ('{keyword}')",
+    }
+    mode_label = mode_labels.get(mode, mode)
+
+    try:
+        zip_bytes, zip_filename = _split_student_pdf_to_zip(
+            pdf_bytes=pdf_bytes,
+            original_filename=filename,
+            segments=segments,
+            mode_label=mode_label,
+            profile_label=profile_label,
+            id_col_label=id_col_label,
+            name_col_label=name_col_label,
+        )
+    except Exception as e:
+        log_error(e, f"split_pdf.generate_zip.{filename}")
+        return jsonify(error=f"Gagal membuat file ZIP: {e}"), 500
+
+    return send_file(
+        io.BytesIO(zip_bytes),
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=zip_filename,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Bulk Certificate / Piagam Generator
+# ---------------------------------------------------------------------------
+
+def _hex_to_rgb(hex_str: str) -> tuple[float, float, float]:
+    """Convert hex color string like #1a202c to RGB float tuple (0.0 to 1.0)."""
+    s = (hex_str or "").strip().lstrip("#")
+    if len(s) == 3:
+        s = "".join(c * 2 for c in s)
+    if len(s) != 6:
+        return (0.0, 0.0, 0.0)
+    try:
+        r = int(s[0:2], 16) / 255.0
+        g = int(s[2:4], 16) / 255.0
+        b = int(s[4:6], 16) / 255.0
+        return (r, g, b)
+    except ValueError:
+        return (0.0, 0.0, 0.0)
+
+
+def _render_text_template(template_str: str, row_data: dict) -> str:
+    """Substitute {{Column}} and {Column} placeholders from row_data case-insensitively."""
+    res = template_str or ""
+    for col, val in row_data.items():
+        val_str = str(val).strip() if val is not None else ""
+        res = re.sub(rf"\{{\{{\s*{re.escape(col)}\s*\}}\}}", val_str, res, flags=re.IGNORECASE)
+        res = re.sub(rf"\{{\s*{re.escape(col)}\s*\}}", val_str, res, flags=re.IGNORECASE)
+    return res
+
+
+def _parse_spreadsheet_rows(file_bytes: bytes, filename: str) -> tuple[list[str], list[dict]]:
+    """Parse an Excel (.xlsx / .xls) or CSV file and return (headers, rows_as_dicts)."""
+    ext = os.path.splitext(filename)[1].lower()
+    headers: list[str] = []
+    rows: list[dict] = []
+
+    if ext in (".xlsx", ".xls"):
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+        ws = wb.active
+        raw_rows = list(ws.iter_rows(values_only=True))
+        if not raw_rows:
+            return [], []
+
+        raw_headers = raw_rows[0]
+        headers = [str(h).strip() for h in raw_headers if h is not None and str(h).strip()]
+
+        for r in raw_rows[1:]:
+            if not any(val is not None and str(val).strip() for val in r):
+                continue
+            row_dict = {}
+            for col_idx, h in enumerate(headers):
+                val = r[col_idx] if col_idx < len(r) else ""
+                row_dict[h] = str(val).strip() if val is not None else ""
+            rows.append(row_dict)
+
+    else:  # CSV
+        text_content = ""
+        for encoding in ("utf-8-sig", "utf-8", "latin-1"):
+            try:
+                text_content = file_bytes.decode(encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+
+        reader = csv.reader(io.StringIO(text_content))
+        raw_rows = list(reader)
+        if not raw_rows:
+            return [], []
+
+        raw_headers = raw_rows[0]
+        headers = [h.strip() for h in raw_headers if h.strip()]
+
+        for r in raw_rows[1:]:
+            if not any(val.strip() for val in r):
+                continue
+            row_dict = {}
+            for col_idx, h in enumerate(headers):
+                val = r[col_idx] if col_idx < len(r) else ""
+                row_dict[h] = val.strip()
+            rows.append(row_dict)
+
+    return headers, rows
+
+
+def _render_single_certificate(
+    template_bytes: bytes,
+    is_pdf_template: bool,
+    row_data: dict,
+    fields: list[dict],
+    qr_config: dict,
+) -> fitz.Document:
+    """Generate a 1-page fitz.Document for a single recipient."""
+    if is_pdf_template:
+        tpl_doc = fitz.open(stream=template_bytes, filetype="pdf")
+        doc = fitz.open()
+        doc.insert_pdf(tpl_doc, from_page=0, to_page=0)
+        tpl_doc.close()
+        page = doc[0]
+        page_w = page.rect.width
+        page_h = page.rect.height
+    else:
+        from PIL import Image
+        img = Image.open(io.BytesIO(template_bytes))
+        page_w, page_h = img.width, img.height
+        doc = fitz.open()
+        page = doc.new_page(width=page_w, height=page_h)
+        page.insert_image(page.rect, stream=template_bytes)
+
+    # 1. Stamp text fields
+    for field in fields:
+        raw_text = field.get("text", "")
+        rendered = _render_text_template(raw_text, row_data)
+        if not rendered.strip():
+            continue
+
+        y_pct = safe_float(field.get("y"), default=50.0) / 100.0
+        fontsize = safe_float(field.get("size"), default=24.0)
+        fontname = field.get("font", "hebo")
+        color = _hex_to_rgb(field.get("color", "#000000"))
+
+        y_center = y_pct * page_h
+        box_h = max(30.0, fontsize * 2.2)
+        y0 = max(0.0, y_center - box_h / 2.0)
+        y1 = min(page_h, y_center + box_h / 2.0)
+        margin_x = page_w * 0.06
+        rect = fitz.Rect(margin_x, y0, page_w - margin_x, y1)
+
+        page.insert_textbox(
+            rect,
+            rendered,
+            fontsize=fontsize,
+            fontname=fontname,
+            color=color,
+            align=fitz.TEXT_ALIGN_CENTER,
+        )
+
+    # 2. Stamp QR code if enabled
+    if qr_config.get("enabled"):
+        qr_raw = qr_config.get("content", "")
+        qr_content = _render_text_template(qr_raw, row_data)
+        if qr_content.strip():
+            import qrcode
+            qr = qrcode.QRCode(
+                version=None,
+                error_correction=qrcode.constants.ERROR_CORRECT_M,
+                box_size=8,
+                border=1,
+            )
+            qr.add_data(qr_content)
+            qr.make(fit=True)
+            qr_img = qr.make_image(fill_color="black", back_color="white")
+            qr_buf = io.BytesIO()
+            qr_img.save(qr_buf, format="PNG")
+            qr_bytes = qr_buf.getvalue()
+
+            qr_size = safe_float(qr_config.get("size"), default=70.0)
+            pos = qr_config.get("position", "bottom-left")
+
+            if pos == "bottom-right":
+                x0 = page_w * 0.94 - qr_size
+                y0 = page_h * 0.92 - qr_size
+            elif pos == "bottom-center":
+                x0 = (page_w - qr_size) / 2.0
+                y0 = page_h * 0.92 - qr_size
+            else:  # bottom-left default
+                x0 = page_w * 0.06
+                y0 = page_h * 0.92 - qr_size
+
+            qr_rect = fitz.Rect(x0, y0, x0 + qr_size, y0 + qr_size)
+            page.insert_image(qr_rect, stream=qr_bytes)
+
+    return doc
+
+
+@bp.route("/certificate-generator")
+def certificate_generator_page():
+    return render_template(
+        "tools/certificate_generator.html",
+        title="Certificate Generator",
+        description=(
+            "Buat puluhan hingga ratusan piagam atau sertifikat secara masal dari template PDF/Gambar "
+            "dan data spreadsheet Excel/CSV, lengkap dengan QR Code verifikasi keaslian."
+        ),
+        endpoint="/acca-plus/certificate-generator",
+    )
+
+
+@bp.route("/certificate-generator", methods=["POST"])
+def certificate_generator():
+    if fitz is None:
+        return jsonify(error="PyMuPDF (fitz) is not installed on the server."), 500
+
+    action = (request.form.get("action") or "generate").strip().lower()
+
+    # Parse Excel/CSV header scan only
+    if action == "parse_data":
+        data_file = request.files.get("data_file")
+        if not data_file or not data_file.filename:
+            return jsonify(error="Silakan unggah file data Excel atau CSV."), 400
+        try:
+            data_bytes = data_file.read()
+            headers, rows = _parse_spreadsheet_rows(data_bytes, data_file.filename)
+            if not headers:
+                return jsonify(error="File Excel/CSV tidak memiliki kolom header."), 400
+            return jsonify(
+                success=True,
+                headers=headers,
+                total_rows=len(rows),
+                sample_row=rows[0] if rows else {},
+            )
+        except Exception as e:
+            log_error(e, "certificate_generator.parse_data")
+            return jsonify(error=f"Gagal membaca data Excel/CSV: {e}"), 400
+
+    # For preview and generate, we require template_file and data_file
+    template_file = request.files.get("template_file")
+    data_file = request.files.get("data_file")
+
+    if not template_file or not template_file.filename:
+        return jsonify(error="Silakan unggah file template sertifikat (.pdf, .png, .jpg)."), 400
+    if not data_file or not data_file.filename:
+        return jsonify(error="Silakan unggah file data penerima (.xlsx, .xls, .csv)."), 400
+
+    template_filename = template_file.filename
+    is_pdf_template = template_filename.lower().endswith(".pdf")
+
+    try:
+        template_bytes = template_file.read()
+        if not template_bytes:
+            return jsonify(error="File template kosong."), 400
+
+        data_bytes = data_file.read()
+        headers, rows = _parse_spreadsheet_rows(data_bytes, data_file.filename)
+        if not rows:
+            return jsonify(error="File data Excel/CSV tidak memuat baris data penerima."), 400
+
+        # Parse fields config
+        fields_json = request.form.get("fields_json") or "[]"
+        try:
+            fields = json.loads(fields_json)
+        except Exception:
+            fields = []
+
+        if not fields:
+            # Default fallback fields
+            fields = [
+                {"text": "{{Nama}}", "y": 42.0, "size": 32.0, "font": "hebo", "color": "#1a202c"},
+                {"text": "Sebagai {{Sebagai}}", "y": 52.0, "size": 18.0, "font": "hebo", "color": "#333333"},
+                {"text": "No: {{No_Piagam}}", "y": 24.0, "size": 13.0, "font": "hebo", "color": "#4a5568"},
+            ]
+
+        # Parse QR config
+        qr_enabled = request.form.get("qr_enabled") in ("1", "true", "on", True)
+        qr_content = (request.form.get("qr_content") or "").strip()
+        qr_position = (request.form.get("qr_position") or "bottom-left").strip()
+        qr_size = safe_float(request.form.get("qr_size"), default=70.0, min_val=30.0, max_val=200.0)
+
+        qr_config = {
+            "enabled": qr_enabled,
+            "content": qr_content,
+            "position": qr_position,
+            "size": qr_size,
+        }
+
+    except Exception as e:
+        log_error(e, "certificate_generator.init")
+        return jsonify(error=f"Gagal menyiapkan template dan data: {e}"), 400
+
+    # ── Action: Preview ────────────────────────────────────────────────────────
+    if action == "preview":
+        try:
+            sample_row = rows[0]
+            doc = _render_single_certificate(
+                template_bytes=template_bytes,
+                is_pdf_template=is_pdf_template,
+                row_data=sample_row,
+                fields=fields,
+                qr_config=qr_config,
+            )
+            pix = doc[0].get_pixmap(dpi=115)
+            png_bytes = pix.tobytes("png")
+            doc.close()
+
+            b64_img = base64.b64encode(png_bytes).decode("ascii")
+            return jsonify(
+                success=True,
+                image=f"data:image/png;base64,{b64_img}",
+                total_rows=len(rows),
+                sample_row=sample_row,
+                headers=headers,
+            )
+        except Exception as e:
+            log_error(e, "certificate_generator.preview")
+            return jsonify(error=f"Gagal membuat pratinjau: {e}"), 500
+
+    # ── Action: Generate ───────────────────────────────────────────────────────
+    output_format = (request.form.get("output_format") or "zip").strip().lower()
+
+    try:
+        combined_doc = fitz.open()
+        zip_buf = io.BytesIO()
+        used_names: set[str] = set()
+
+        summary_lines = [
+            "=" * 85,
+            "               ACCA TOOLS — BULK CERTIFICATE GENERATION SUMMARY",
+            "=" * 85,
+            f"Template Asal   : {template_filename}",
+            f"File Data       : {data_file.filename}",
+            f"Total Penerima  : {len(rows)} orang",
+            f"QR Verifikasi   : {'Aktif' if qr_enabled else 'Nonaktif'}",
+            "-" * 85,
+            f"{'No.':<4} | {'Nama Penerima':<30} | {'No. Piagam / ID':<20} | {'Nama File Output'}",
+            "-" * 85,
+        ]
+
+        with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for i, row in enumerate(rows):
+                single_doc = _render_single_certificate(
+                    template_bytes=template_bytes,
+                    is_pdf_template=is_pdf_template,
+                    row_data=row,
+                    fields=fields,
+                    qr_config=qr_config,
+                )
+
+                # Add to merged PDF
+                combined_doc.insert_pdf(single_doc, from_page=0, to_page=0)
+
+                # Determine file name
+                name_val = row.get("Nama") or row.get("Nama Siswa") or row.get("Nama Guru") or f"Penerima_{i+1}"
+                id_val = row.get("No_Piagam") or row.get("Nomor") or row.get("NISN") or ""
+
+                clean_name = _sanitize(str(name_val))
+                clean_id = _sanitize(str(id_val))
+
+                parts = [f"{i+1:02d}"]
+                if clean_id:
+                    parts.append(clean_id)
+                if clean_name:
+                    parts.append(clean_name)
+
+                out_filename = f"{'_'.join(parts)}.pdf"
+                out_filename = _unique_name(out_filename, used_names)
+
+                pdf_bytes = single_doc.tobytes(garbage=3, deflate=True)
+                single_doc.close()
+
+                zf.writestr(out_filename, pdf_bytes)
+
+                line = f"{i+1:<4} | {str(name_val)[:30]:<30} | {str(id_val)[:20]:<20} | {out_filename}"
+                summary_lines.append(line)
+
+            summary_lines.append("=" * 85)
+
+            # Insert combined PDF inside the zip too
+            combined_bytes = combined_doc.tobytes(garbage=3, deflate=True)
+            zf.writestr("_Semua_Piagam_Gabungan.pdf", combined_bytes)
+            zf.writestr("_certificate_summary.txt", "\n".join(summary_lines).encode("utf-8"))
+
+        combined_doc.close()
+
+    except Exception as e:
+        log_error(e, "certificate_generator.generate")
+        return jsonify(error=f"Gagal men-generate sertifikat: {e}"), 500
+
+    # If user explicitly requested single consolidated PDF only:
+    if output_format == "single_pdf":
+        return send_file(
+            io.BytesIO(combined_bytes),
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name="Semua_Piagam_Gabungan.pdf",
+        )
+
+    # Default: ZIP archive containing individual PDFs + merged PDF + summary
+    zip_buf.seek(0)
+    return send_file(
+        zip_buf,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name="piagam_sertifikat_masal.zip",
     )
 
 
@@ -839,3 +1827,541 @@ def compress_image_target():
     resp.headers["X-Is-Zip"] = "1"
     resp.headers["Access-Control-Expose-Headers"] = "X-Is-Zip"
     return resp
+
+
+# ---------------------------------------------------------------------------
+# CBT Converter (Naskah Guru -> Template Resmi ACCA CBT 4-Tabel)
+# ---------------------------------------------------------------------------
+
+CBT_TEMPLATE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "static",
+    "templates",
+    "template_soal_pengetahuan.docx",
+)
+FALLBACK_CBT_TEMPLATE_PATH = r"D:\TW 3 Akademik\template_soal_pengetahuan (14).docx"
+
+
+def _get_base_cbt_template_path() -> str:
+    if os.path.exists(CBT_TEMPLATE_PATH):
+        return CBT_TEMPLATE_PATH
+    if os.path.exists(FALLBACK_CBT_TEMPLATE_PATH):
+        return FALLBACK_CBT_TEMPLATE_PATH
+    raise FileNotFoundError("Base CBT template not found in static/templates or fallback path.")
+
+
+def _extract_text_and_runs_from_docx(file_stream) -> list[tuple[str, bool]]:
+    """Extract paragraphs and table text from a docx file, noting bold formatting."""
+    doc = docx.Document(file_stream)
+    lines: list[tuple[str, bool]] = []
+
+    for p in doc.paragraphs:
+        t = p.text.strip()
+        if not t:
+            continue
+        is_bold = any(r.bold for r in p.runs if r.text.strip())
+        lines.append((t, is_bold))
+
+    for tbl in doc.tables:
+        for row in tbl.rows:
+            row_texts = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+            if row_texts:
+                row_bold = any(
+                    any(r.bold for p in cell.paragraphs for r in p.runs if r.text.strip())
+                    for cell in row.cells
+                )
+                lines.append((" | ".join(row_texts), row_bold))
+
+    return lines
+
+
+def _parse_raw_questions(raw_input, default_points=None, default_materi="Pengetahuan Umum"):
+    """
+    Intelligently parses teacher questions into a structured list of questions
+    for the ACCA CBT 4-table format.
+    Supports PG, PGK, BS, MJ, CAT, ISIAN, ESAI, URUT.
+    """
+    if default_points is None:
+        default_points = {
+            "pg": 1,
+            "pgk": 2,
+            "bs": 2,
+            "mj": 2,
+            "cat": 2,
+            "isian": 1,
+            "esai": 5,
+            "urut": 2,
+        }
+
+    if isinstance(raw_input, str):
+        lines: list[tuple[str, bool]] = [
+            (l.strip(), False) for l in raw_input.strip().splitlines() if l.strip()
+        ]
+    else:
+        lines = list(raw_input)
+
+    # 1. Detect bottom answer key section
+    bottom_keys: dict[int, str] = {}
+    key_section_start = -1
+    for i, (line, _) in enumerate(lines):
+        if re.match(r"^(?:KUNCI\s*JAWABAN|KUNCI\s*SOAL|KUNCI)\s*[:]?$", line, re.I):
+            key_section_start = i
+            break
+
+    if key_section_start != -1:
+        for line, _ in lines[key_section_start + 1 :]:
+            km = re.match(r"^(\d+)[\.\)\:\-\]]\s*(.+)$", line)
+            if km:
+                bottom_keys[int(km.group(1))] = km.group(2).strip()
+        lines = lines[:key_section_start]
+
+    questions: list[dict] = []
+    curr_q: dict | None = None
+
+    q_re = re.compile(r"^(?:(?:Soal|Nomor|No\.?)\s*)?(\d+)[\.\)\:\-\]]\s*(.*)$", re.I)
+    q_bracket_re = re.compile(r"^[\[\(](\d+)[\]\)]\s*(.*)$")
+    opt_single_re = re.compile(r"^(\*?)\(?([A-Ha-h])[\.\)\:\-\]]\s*(.*)$")
+    opt_multi_re = re.compile(r"(?:^|\s+)([A-Ha-h])[\.\)\:\-\]]\s+")
+    key_re = re.compile(r"^(?:Kunci(?:\s*Jawaban)?|Jawaban|Ans(?:wer)?)\s*[:=]\s*(.*)$", re.I)
+    point_re = re.compile(
+        r"^(?:Poin|Skor|Point|Score)\s*[:=]\s*(\d+)|[\[\(](\d+)\s*(?:poin|skor|point|score)[\]\)]",
+        re.I,
+    )
+    bs_re = re.compile(
+        r"^(?:Pernyataan\s*)?(?:(P\d+|\d+|\-|\*)\s*[\.\:\-\]]?\s*)?(.*?)(?:\s*[\[\(]([BbSs]|Benar|Salah)[\]\)])\s*$",
+        re.I,
+    )
+    mj_re = re.compile(r"^(?:(?:MJ\d+|\d+|\-|\*)\s*[\.\:\-\]]?\s*)?(.*?)\s*(?:->|–>|—>|=>|=|:)\s*(.+)$")
+
+    stimulus_buffer: list[str] = []
+
+    for line_text, is_bold in lines:
+        qm = q_re.match(line_text) or q_bracket_re.match(line_text)
+        is_new_q = False
+
+        if qm:
+            num = int(qm.group(1))
+            expected = len(questions) + 1
+
+            # Check if this is an ordering step inside an active question asking to order
+            is_ordering_step = False
+            if curr_q and "urutkan" in curr_q.get("text", "").lower() and not curr_q.get("key"):
+                if num <= 10 and (num == 1 or num == len(curr_q.get("ordering_items", [])) + 1):
+                    is_ordering_step = True
+
+            if not is_ordering_step:
+                if num == expected or curr_q is None:
+                    is_new_q = True
+                elif curr_q and num > curr_q["no"] and (num <= curr_q["no"] + 5):
+                    is_new_q = True
+
+        if is_new_q:
+            if curr_q:
+                questions.append(curr_q)
+            num = int(qm.group(1))
+            prompt = qm.group(2).strip()
+
+            current_stim = ""
+            if stimulus_buffer:
+                current_stim = "\n".join(stimulus_buffer).strip()
+                stimulus_buffer = []
+
+            curr_q = {
+                "id": len(questions) + 1,
+                "no": num,
+                "type": "PG",
+                "text": prompt,
+                "options": [],
+                "statements": [],
+                "pairs": [],
+                "categories": [],
+                "ordering_items": [],
+                "key": bottom_keys.get(num, ""),
+                "point": default_points.get("pg", 1),
+                "has_explicit_point": False,
+                "stimulus": {"title": f"Stimulus Soal {num}", "content": current_stim} if current_stim else {"title": "", "content": ""},
+                "kisi": {"materi": default_materi, "indikator": f"Peserta didik dapat menyelesaikan soal nomor {num}"},
+            }
+            continue
+
+        if not curr_q:
+            stimulus_buffer.append(line_text)
+            continue
+
+        # Check points
+        pm = point_re.search(line_text)
+        if pm:
+            val = next(g for g in pm.groups() if g is not None)
+            curr_q["point"] = int(val)
+            curr_q["has_explicit_point"] = True
+            line_text = point_re.sub("", line_text).strip()
+            if not line_text:
+                continue
+
+        # Check inline key
+        km = key_re.match(line_text)
+        if km:
+            curr_q["key"] = km.group(1).strip()
+            continue
+
+        # Check multiple options on single line
+        multi_matches = list(opt_multi_re.finditer(line_text))
+        if len(multi_matches) >= 2:
+            for idx_m, m in enumerate(multi_matches):
+                st = m.end()
+                en = multi_matches[idx_m + 1].start() if idx_m + 1 < len(multi_matches) else len(line_text)
+                lbl = m.group(1).upper()
+                opt_txt = line_text[st:en].strip()
+                curr_q["options"].append({"label": lbl, "text": opt_txt})
+            continue
+
+        # Check single option (A., B., *C.)
+        om = opt_single_re.match(line_text)
+        if om:
+            is_star = bool(om.group(1))
+            letter = om.group(2).upper()
+            opt_txt = om.group(3).strip()
+            curr_q["options"].append({"label": letter, "text": opt_txt})
+            if (is_star or is_bold) and not curr_q["key"]:
+                curr_q["key"] = letter
+            continue
+
+        # Check BS statement
+        bs_match = bs_re.match(line_text)
+        if bs_match and bs_match.group(3):
+            lbl = bs_match.group(1) or f"P{len(curr_q['statements']) + 1}"
+            stmt_text = bs_match.group(2).strip()
+            stmt_key = bs_match.group(3).upper()
+            if stmt_key in ("BENAR", "B"):
+                stmt_key = "B"
+            elif stmt_key in ("SALAH", "S"):
+                stmt_key = "S"
+            curr_q["statements"].append({"label": lbl, "text": stmt_text, "key": stmt_key})
+            continue
+
+        # Check MJ pair
+        mj_match = mj_re.match(line_text)
+        if mj_match and ("->" in line_text or "=>" in line_text or " : " in line_text) and not curr_q["options"]:
+            curr_q["pairs"].append({
+                "left": mj_match.group(1).strip(),
+                "right": mj_match.group(2).strip(),
+            })
+            continue
+
+        # Check ordering items
+        if "urutkan" in curr_q["text"].lower():
+            step_m = re.match(r"^(\d+)[\.\)\:\-\]]\s*(.+)$", line_text)
+            if step_m:
+                curr_q["ordering_items"].append(step_m.group(2).strip())
+                continue
+
+        # Text continuation
+        if curr_q["options"]:
+            curr_q["options"][-1]["text"] += " " + line_text
+        elif curr_q["statements"]:
+            curr_q["statements"][-1]["text"] += " " + line_text
+        elif curr_q["pairs"]:
+            curr_q["pairs"][-1]["right"] += " " + line_text
+        else:
+            curr_q["text"] += ("\n" if curr_q["text"] else "") + line_text
+
+    if curr_q:
+        questions.append(curr_q)
+
+    # Refine question types, keys, and points
+    missing_keys = 0
+    types_count: dict[str, int] = {}
+
+    for q in questions:
+        q_text_lower = q["text"].lower()
+        key = q.get("key", "").strip()
+        has_pt = q.get("has_explicit_point", False)
+
+        if q["statements"] or "benar atau salah" in q_text_lower or "benar/salah" in q_text_lower:
+            q["type"] = "BS"
+            if not has_pt:
+                q["point"] = default_points.get("bs", 2)
+            if not key and q["statements"]:
+                q["key"] = "|".join(s["key"] for s in q["statements"] if s.get("key"))
+        elif q["pairs"] or "menjodohkan" in q_text_lower or "pasangkan" in q_text_lower:
+            q["type"] = "MJ"
+            if not has_pt:
+                q["point"] = default_points.get("mj", 2)
+        elif q["ordering_items"] or "urutkan" in q_text_lower or ";" in key:
+            q["type"] = "URUT"
+            if not has_pt:
+                q["point"] = default_points.get("urut", 2)
+            if not key and q["ordering_items"]:
+                q["key"] = ";".join(str(i + 1) for i in range(len(q["ordering_items"])))
+        elif q["options"]:
+            if "," in key or ";" in key or "lebih dari satu" in q_text_lower or "kompleks" in q_text_lower or "checklist" in q_text_lower:
+                q["type"] = "PGK"
+                if not has_pt:
+                    q["point"] = default_points.get("pgk", 2)
+            else:
+                q["type"] = "PG"
+                if not has_pt:
+                    q["point"] = default_points.get("pg", 1)
+        elif "....." in q["text"] or "___" in q["text"] or (key and not q["options"] and len(key.split()) <= 4):
+            q["type"] = "ISIAN"
+            if not has_pt:
+                q["point"] = default_points.get("isian", 1)
+        else:
+            q["type"] = "ESAI"
+            if not has_pt:
+                q["point"] = default_points.get("esai", 5)
+
+        t = q["type"]
+        types_count[t] = types_count.get(t, 0) + 1
+
+        if not q.get("key") and t not in ("ESAI", "MJ", "CAT"):
+            missing_keys += 1
+
+    summary = {
+        "total": len(questions),
+        "total_points": sum(q.get("point", 1) for q in questions),
+        "missing_keys": missing_keys,
+        "types_count": types_count,
+    }
+
+    return questions, summary
+
+
+def _generate_cbt_docx(
+    questions: list[dict],
+    custom_kisi: list[dict] | None = None,
+    custom_stimulus: list[dict] | None = None,
+) -> io.BytesIO:
+    template_path = _get_base_cbt_template_path()
+    doc = docx.Document(template_path)
+
+    t0 = doc.tables[0]
+    t1 = doc.tables[1]
+    t2 = doc.tables[2]
+    t3 = doc.tables[3]
+
+    sample_tr_t0 = copy.deepcopy(t0.rows[1]._tr)
+    sample_tr_t1 = copy.deepcopy(t1.rows[1]._tr)
+    sample_tr_t2 = copy.deepcopy(t2.rows[1]._tr)
+    sample_tr_t3 = copy.deepcopy(t3.rows[1]._tr)
+
+    for t in [t0, t1, t2, t3]:
+        for r in list(t.rows)[1:]:
+            t._tbl.remove(r._tr)
+
+    def _set_tc_text(tc, text):
+        p = tc.xpath("./w:p")[0]
+        for child in list(p):
+            if child.tag.endswith("pPr"):
+                continue
+            p.remove(child)
+        if text is not None and str(text).strip() != "":
+            parts = str(text).split("\n")
+            for idx, part in enumerate(parts):
+                if idx > 0:
+                    r_br = OxmlElement("w:r")
+                    r_br.append(OxmlElement("w:br"))
+                    p.append(r_br)
+                if part:
+                    r = OxmlElement("w:r")
+                    t = OxmlElement("w:t")
+                    t.text = part
+                    t.set(qn("xml:space"), "preserve")
+                    r.append(t)
+                    p.append(r)
+
+    def _add_row(table, sample_tr, values):
+        new_tr = copy.deepcopy(sample_tr)
+        tcs = new_tr.xpath("./w:tc")
+        for idx, val in enumerate(values):
+            if idx < len(tcs):
+                _set_tc_text(tcs[idx], val)
+        table._tbl.append(new_tr)
+
+    stimulus_list = []
+    kisi_list = []
+    types_present = set()
+
+    # Populate Table 0 (Soal)
+    for q in questions:
+        q_no = str(q.get("no", ""))
+        q_type = str(q.get("type", "PG")).upper()
+        q_text = str(q.get("text", "")).strip()
+        q_key = str(q.get("key", "")).strip()
+        q_point = str(q.get("point", "1"))
+        types_present.add(q_type)
+
+        _add_row(t0, sample_tr_t0, [q_no, q_type, q_text, q_key, q_point])
+
+        if q_type in ("PG", "PGK"):
+            for opt in q.get("options", []):
+                _add_row(t0, sample_tr_t0, ["", opt.get("label", ""), opt.get("text", ""), "", ""])
+        elif q_type == "BS":
+            for idx, stmt in enumerate(q.get("statements", [])):
+                lbl = stmt.get("label") or f"P{idx+1}"
+                _add_row(t0, sample_tr_t0, ["", lbl, stmt.get("text", ""), stmt.get("key", ""), ""])
+        elif q_type == "MJ":
+            for idx, pair in enumerate(q.get("pairs", [])):
+                lbl = f"MJ{idx+1}"
+                _add_row(t0, sample_tr_t0, ["", lbl, pair.get("left", ""), pair.get("right", ""), ""])
+        elif q_type == "CAT":
+            for idx, cat in enumerate(q.get("categories", [])):
+                lbl = f"CAT{idx+1}"
+                _add_row(t0, sample_tr_t0, ["", lbl, cat.get("item", ""), cat.get("category", ""), ""])
+        elif q_type == "URUT":
+            for idx, item in enumerate(q.get("ordering_items", [])):
+                lbl = f"U{idx+1}"
+                val_txt = item if isinstance(item, str) else item.get("text", "")
+                _add_row(t0, sample_tr_t0, ["", lbl, val_txt, "", ""])
+
+        # Check kisi
+        kisi = q.get("kisi")
+        if kisi and (kisi.get("materi") or kisi.get("indikator")):
+            kisi_list.append((q_no, kisi.get("materi", ""), kisi.get("indikator", "")))
+
+        # Check stimulus
+        stim = q.get("stimulus")
+        if stim and (stim.get("content") or stim.get("title")):
+            stimulus_list.append((q_no, stim.get("title", f"Stimulus {q_no}"), stim.get("content", "")))
+
+    # Populate Table 1 (Kisi-kisi)
+    if custom_kisi:
+        for k in custom_kisi:
+            _add_row(t1, sample_tr_t1, [str(k.get("no", "")), k.get("materi", ""), k.get("indikator", "")])
+    elif kisi_list:
+        for item in kisi_list:
+            _add_row(t1, sample_tr_t1, [item[0], item[1], item[2]])
+    else:
+        first_last = f"1-{len(questions)}" if len(questions) > 1 else "1"
+        _add_row(t1, sample_tr_t1, [first_last, "Materi Pengetahuan", "Mengukur kompetensi dan capaian pembelajaran peserta didik"])
+
+    # Populate Table 2 (Stimulus)
+    if custom_stimulus:
+        for s in custom_stimulus:
+            _add_row(t2, sample_tr_t2, [str(s.get("no", "")), s.get("title", ""), s.get("content", "")])
+    else:
+        for stim in stimulus_list:
+            _add_row(t2, sample_tr_t2, [stim[0], stim[1], stim[2]])
+
+    # Populate Table 3 (Petunjuk)
+    instruction_defaults = {
+        "PG": ("Petunjuk PG", "Pilihlah satu jawaban yang paling tepat!"),
+        "PGK": ("Petunjuk PGK", "Pilihlah semua jawaban yang benar (jawaban bisa lebih dari satu)!"),
+        "BS": ("Petunjuk BS", "Tentukan apakah setiap pernyataan berikut Benar (B) atau Salah (S)."),
+        "MJ": ("Petunjuk Menjodohkan", "Jodohkan item pada kolom sebelah kiri dengan kolom sebelah kanan."),
+        "CAT": ("Petunjuk Kategorisasi", "Kelompokkan setiap item ke dalam kategori yang sesuai."),
+        "ISIAN": ("Petunjuk Isian", "Isilah titik-titik dengan jawaban singkat yang tepat!"),
+        "ESAI": ("Petunjuk Esai", "Jawablah pertanyaan berikut secara lengkap, jelas, dan terstruktur."),
+        "URUT": ("Petunjuk Pengurutan", "Urutkan tahapan atau item berikut dari urutan pertama hingga terakhir."),
+    }
+
+    for q_type, (title, content) in instruction_defaults.items():
+        if q_type in types_present:
+            nums = [str(q.get("no", "")) for q in questions if str(q.get("type", "")).upper() == q_type]
+            num_ref = ",".join(nums[:5]) + ("..." if len(nums) > 5 else "")
+            _add_row(t3, sample_tr_t3, [num_ref, title, content])
+
+    out = io.BytesIO()
+    doc.save(out)
+    out.seek(0)
+    return out
+
+
+@bp.route("/cbt-converter")
+def cbt_converter_page():
+    return render_template(
+        "tools/cbt_converter.html",
+        title="Konverter Soal ke Template ACCA CBT",
+        description="Unggah naskah soal Word (.docx) atau tempel naskah soal guru. Sistem otomatis mendeteksi tipe soal (PG, PGK, BS, Menjodohkan, dsb.), opsi, dan kunci jawaban, lalu menyusunnya ke dalam format resmi 4-tabel ACCA CBT siap diimpor.",
+        endpoint=url_for("acca_plus.cbt_converter"),
+    )
+
+
+@bp.route("/cbt-converter", methods=["POST"])
+def cbt_converter():
+    action = request.form.get("action", "parse")
+
+    if action == "download_template":
+        try:
+            path = _get_base_cbt_template_path()
+            return send_file(
+                path,
+                mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                as_attachment=True,
+                download_name="template_soal_pengetahuan_resmi.docx",
+            )
+        except Exception as e:
+            log_error(e, "cbt_converter.download_template")
+            return jsonify(error=f"Gagal mengunduh template dasar: {e}"), 400
+
+    if action == "parse":
+        try:
+            uploaded_file = request.files.get("file")
+            raw_text = request.form.get("raw_text", "").strip()
+
+            default_points = {
+                "pg": safe_int(request.form.get("def_pg_pt", "1"), 1),
+                "pgk": safe_int(request.form.get("def_pgk_pt", "2"), 2),
+                "bs": safe_int(request.form.get("def_bs_pt", "2"), 2),
+                "mj": safe_int(request.form.get("def_mj_pt", "2"), 2),
+                "cat": safe_int(request.form.get("def_cat_pt", "2"), 2),
+                "isian": safe_int(request.form.get("def_isian_pt", "1"), 1),
+                "esai": safe_int(request.form.get("def_esai_pt", "5"), 5),
+                "urut": safe_int(request.form.get("def_urut_pt", "2"), 2),
+            }
+            default_materi = request.form.get("def_materi", "Pengetahuan Umum").strip() or "Pengetahuan Umum"
+
+            if uploaded_file and uploaded_file.filename:
+                fn = uploaded_file.filename.lower()
+                if fn.endswith(".docx"):
+                    lines = _extract_text_and_runs_from_docx(io.BytesIO(uploaded_file.read()))
+                    questions, summary = _parse_raw_questions(lines, default_points, default_materi)
+                elif fn.endswith(".txt"):
+                    content = uploaded_file.read().decode("utf-8", errors="ignore")
+                    questions, summary = _parse_raw_questions(content, default_points, default_materi)
+                else:
+                    return jsonify(error="Format file tidak didukung. Harap unggah file .docx atau .txt"), 400
+            elif raw_text:
+                questions, summary = _parse_raw_questions(raw_text, default_points, default_materi)
+            else:
+                return jsonify(error="Harap unggah file Word (.docx) atau masukkan teks soal."), 400
+
+            if not questions:
+                return jsonify(error="Tidak ada butir soal yang berhasil dideteksi. Pastikan naskah soal memiliki nomor soal (contoh: 1. Pertanyaan...)"), 400
+
+            return jsonify(success=True, questions=questions, summary=summary)
+        except Exception as e:
+            log_error(e, "cbt_converter.parse")
+            return jsonify(error=f"Gagal menganalisis naskah soal: {e}"), 400
+
+    if action == "generate":
+        try:
+            questions_raw = request.form.get("questions_json")
+            if not questions_raw:
+                if request.is_json:
+                    questions_data = request.json.get("questions", [])
+                    custom_kisi = request.json.get("kisi")
+                    custom_stimulus = request.json.get("stimulus")
+                else:
+                    return jsonify(error="Data soal kosong."), 400
+            else:
+                payload = json.loads(questions_raw)
+                questions_data = payload.get("questions", payload) if isinstance(payload, dict) else payload
+                custom_kisi = payload.get("kisi") if isinstance(payload, dict) else None
+                custom_stimulus = payload.get("stimulus") if isinstance(payload, dict) else None
+
+            if not questions_data or not isinstance(questions_data, list):
+                return jsonify(error="Daftar soal tidak valid atau kosong."), 400
+
+            docx_buf = _generate_cbt_docx(questions_data, custom_kisi, custom_stimulus)
+            return send_file(
+                docx_buf,
+                mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                as_attachment=True,
+                download_name="soal_cbt_siap_import.docx",
+            )
+        except Exception as e:
+            log_error(e, "cbt_converter.generate")
+            return jsonify(error=f"Gagal menyusun dokumen template CBT: {e}"), 400
+
+    return jsonify(error=f"Aksi '{action}' tidak dikenal."), 400

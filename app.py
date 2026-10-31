@@ -30,6 +30,9 @@ TOOL_CATEGORIES = [
         "tools": [
             {"id": "latex-ocr", "name": "Formula to LaTeX", "desc": "Convert formula image to LaTeX code", "icon": "bi-calculator-fill"},
             {"id": "rename-pdf", "name": "Rename PDFs", "desc": "Bulk rename PDFs using NISN & student name from content", "icon": "bi-tag-fill"},
+            {"id": "split-pdf", "name": "Split Document", "desc": "Split bulk PDF by Student (NISN), Teacher (NIP), or Custom Label", "icon": "bi-person-lines-fill"},
+            {"id": "certificate-generator", "name": "Certificate Generator", "desc": "Bulk generate certificates from Excel & template with QR verification", "icon": "bi-award-fill"},
+            {"id": "cbt-converter", "name": "Konverter Soal CBT", "desc": "Konversi naskah soal Word/Teks ke template resmi ACCA CBT 4-Tabel", "icon": "bi-file-earmark-check-fill"},
             {"id": "compress-pdf", "name": "Compress PDF", "desc": "Reduce PDF to a specific target file size", "icon": "bi-file-zip-fill"},
             {"id": "compress-image", "name": "Compress Image", "desc": "Reduce images to a specific target file size", "icon": "bi-file-image-fill"},
         ],

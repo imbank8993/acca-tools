@@ -1,0 +1,505 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - ACCA - TOOLS{% endblock %}
+
+{% block content %}
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>{{ title }}</h1>
+        <p>{{ description|safe }}</p>
+    </div>
+
+    <div class="tool-notes">
+        <p>
+            <strong>Cara Kerja:</strong> Sistem membaca teks dari setiap halaman PDF menggunakan engine lokal berkecepatan tinggi. 
+            Identitas dokumen dideteksi secara otomatis berdasarkan profil pilihan Anda: <strong>Siswa (NISN &amp; Nama)</strong>, 
+            <strong>Guru/Pegawai (NIP/NUPTK &amp; Nama)</strong>, <strong>Surat Dinas / SK (Nomor &amp; Perihal)</strong>, atau <strong>Label Kustom Bebas</strong>.
+        </p>
+        <p>
+            <strong>Metode Pemisahan:</strong>
+            <br>&bull; <em>Auto-detect (Rekomendasi):</em> Otomatis mendeteksi pergantian entitas saat ID / Nama baru muncul di halaman berikutnya (panjang halaman per entitas bisa bervariasi).
+            <br>&bull; <em>Halaman Tetap:</em> Memotong setiap N halaman per file (contoh: 1 halaman untuk Kartu Ujian/Slip Gaji, 2 halaman untuk SKL/Sertifikat).
+            <br>&bull; <em>Kata Kunci Halaman Pertama:</em> Memotong setiap kali judul/kata kunci tertentu ditemukan di awal dokumen baru.
+        </p>
+        <p style="font-size:.9em;color:var(--muted)">
+            <i class="bi bi-info-circle"></i>
+            Hanya berfungsi pada file PDF berbasis teks digital. Jika dokumen adalah hasil scan gambar murni tanpa teks, gunakan mode <em>Jumlah Halaman Tetap</em> atau jalankan <em>OCR PDF</em> terlebih dahulu.
+        </p>
+    </div>
+
+    <form id="split-student-form" data-endpoint="{{ endpoint }}">
+        <!-- Upload Zone -->
+        <div class="upload-zone" id="upload-zone">
+            <input type="file" id="file-input" name="files" accept=".pdf">
+            <div class="upload-prompt" id="upload-prompt">
+                <i class="bi bi-file-earmark-person-fill" style="font-size:2.5rem;color:var(--primary)"></i>
+                <p>Seret &amp; lepas file PDF gabungan di sini</p>
+                <span>atau klik untuk memilih file</span>
+                <small>Format didukung: .pdf (Rapor, KPU, SKP Guru, Slip Gaji, SK Dinas, Dokumen Umum)</small>
+            </div>
+        </div>
+
+        <!-- File info badge after selection -->
+        <div id="file-info" style="display:none;margin:.75rem 0;padding:.6rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:.9em;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:.6rem;overflow:hidden">
+                <i class="bi bi-file-earmark-pdf-fill" style="color:#e74c3c;font-size:1.2rem"></i>
+                <span id="file-name-label" style="font-weight:600;text-overflow:ellipsis;overflow:hidden;white-space:nowrap"></span>
+                <span id="file-size-label" style="color:var(--muted);font-size:.85em;flex-shrink:0"></span>
+            </div>
+            <button type="button" class="btn btn-small" onclick="clearFile()" style="flex-shrink:0">
+                <i class="bi bi-x-circle"></i> Ganti File
+            </button>
+        </div>
+
+        <!-- Configuration Options -->
+        <div class="tool-options" style="margin-top:1.25rem">
+            <!-- Document Profile Selector -->
+            <div class="form-group option-group">
+                <label for="doc-profile"><strong><i class="bi bi-person-badge-fill"></i> Profil Dokumen yang Diproses</strong></label>
+                <select id="doc-profile" name="doc_profile" style="width:100%;max-width:540px">
+                    <option value="siswa" selected>Siswa / Santri (NISN &amp; Nama Siswa) &mdash; Rapor, Kartu Ujian, SKL</option>
+                    <option value="guru">Guru / GTK / Pegawai (NIP / NUPTK &amp; Nama Guru) &mdash; SKP, Slip Gaji, SK Tugas</option>
+                    <option value="surat">Surat Dinas / SK / Kwitansi (Nomor Surat/SK &amp; Perihal / Tentang)</option>
+                    <option value="custom">Kustom / Label Bebas (Tentukan Nama Label Sendiri Tanpa Regex)</option>
+                </select>
+                <small style="color:var(--muted);display:block;margin-top:.3rem">
+                    Pilih jenis dokumen agar sistem mengenali pola identitas yang sesuai secara otomatis.
+                </small>
+            </div>
+
+            <!-- Custom Labels Option (shown when custom profile selected) -->
+            <div class="form-group option-group" id="custom-labels-group" style="display:none;margin-top:1rem;padding:1rem;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+                <strong style="display:block;margin-bottom:.5rem;font-size:.92em"><i class="bi bi-sliders2"></i> Tentukan Nama Label pada Dokumen Anda:</strong>
+                <div style="display:flex;gap:1rem;flex-wrap:wrap">
+                    <div style="flex:1;min-width:240px">
+                        <label for="custom-label-id" style="font-size:.88em">Label Kolom ID / Nomor Unik</label>
+                        <input type="text" id="custom-label-id" name="custom_label_id" placeholder="Misal: No. Peserta, NIK, Kode, No. Rekening">
+                        <small style="color:var(--muted);display:block;margin-top:.2rem">Teks sebelum tanda titik dua (contoh: <code>No. Peserta : 01-23</code>)</small>
+                    </div>
+                    <div style="flex:1;min-width:240px">
+                        <label for="custom-label-name" style="font-size:.88em">Label Kolom Nama / Deskripsi</label>
+                        <input type="text" id="custom-label-name" name="custom_label_name" placeholder="Misal: Mata Pelajaran, Instansi, Nama Pegawai">
+                        <small style="color:var(--muted);display:block;margin-top:.2rem">Teks sebelum tanda titik dua (contoh: <code>Mata Pelajaran : Geografi</code>)</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Splitting Mode -->
+            <div class="form-group option-group" style="margin-top:1.25rem">
+                <label for="split-mode"><strong><i class="bi bi-diagram-3-fill"></i> Metode Pemisahan Halaman</strong></label>
+                <select id="split-mode" name="mode" style="width:100%;max-width:540px">
+                    <option value="auto" selected>Auto-detect (Pergantian Identitas Dokumen) &mdash; Rekomendasi</option>
+                    <option value="fixed">Jumlah Halaman Tetap (Fixed Pages)</option>
+                    <option value="keyword">Kata Kunci Halaman Pertama (First-Page Keyword)</option>
+                </select>
+            </div>
+
+            <!-- Fixed Pages Option (shown when fixed mode selected) -->
+            <div class="form-group option-group" id="fixed-pages-group" style="display:none;margin-top:1rem;padding-left:1rem;border-left:3px solid var(--primary)">
+                <label for="fixed-pages-input">Jumlah Halaman per File</label>
+                <div style="display:flex;gap:.5rem;align-items:center">
+                    <input type="number" id="fixed-pages-input" name="fixed_pages" min="1" max="500" value="1" style="width:120px">
+                    <span style="color:var(--muted);font-size:.9em">halaman per file</span>
+                </div>
+                <small style="color:var(--muted);display:block;margin-top:.25rem">
+                    Contoh: 1 halaman untuk Kartu Ujian/Slip Gaji, 2 halaman untuk SKL/Ijazah, 3 halaman untuk Rapor tetap.
+                </small>
+            </div>
+
+            <!-- Keyword Option (shown when keyword mode selected) -->
+            <div class="form-group option-group" id="keyword-group" style="display:none;margin-top:1rem;padding-left:1rem;border-left:3px solid var(--primary)">
+                <label for="keyword-input">Kata Kunci / Judul Halaman Pertama</label>
+                <input type="text" id="keyword-input" name="keyword" placeholder="Contoh: RAPOR PESERTA DIDIK atau SURAT KEPUTUSAN" style="max-width:480px">
+                <small style="color:var(--muted);display:block;margin-top:.25rem">
+                    Tiap halaman yang memuat kata kunci ini akan dianggap sebagai halaman awal dokumen baru.
+                </small>
+            </div>
+
+            <!-- Output Naming Pattern -->
+            <div class="form-group option-group" style="margin-top:1.25rem">
+                <label for="naming-pattern"><strong><i class="bi bi-tag-fill"></i> Format Penamaan File Output</strong></label>
+                <select id="naming-pattern" name="naming_pattern" style="width:100%;max-width:540px">
+                    <option value="nisn_nama" selected>ID_Nama.pdf (Contoh: 19850101_NURMADINAH.pdf / 00812345_AHMAD.pdf)</option>
+                    <option value="no_nisn_nama">No_ID_Nama.pdf (Contoh: 01_19850101_NURMADINAH.pdf)</option>
+                    <option value="prefix_nisn_nama">Prefix_ID_Nama.pdf (Contoh: SKP_19850101_NURMADINAH.pdf)</option>
+                    <option value="nama_nisn">Nama_ID.pdf (Contoh: NURMADINAH_19850101.pdf)</option>
+                </select>
+            </div>
+
+            <!-- Optional Prefix -->
+            <div class="form-group option-group" style="margin-top:.75rem">
+                <label for="prefix-input">Awalan Nama File / Prefix (Opsional)</label>
+                <input type="text" id="prefix-input" name="prefix" placeholder="Misal: Rapor_X1, SlipGaji_Okt, SK_Tugas" style="max-width:320px">
+                <small style="color:var(--muted);display:block;margin-top:.25rem">
+                    Tambahan teks di depan nama file (wajib diisi jika memilih pola <em>Prefix_...</em>).
+                </small>
+            </div>
+
+            <!-- Formatting Checkbox -->
+            <div class="form-group option-group" style="margin-top:.75rem">
+                <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;font-weight:400">
+                    <input type="checkbox" id="uppercase-name" name="uppercase_name" value="1" checked style="width:auto">
+                    <span>Kapitalkan Nama / Keterangan (HURUF BESAR / UPPERCASE)</span>
+                </label>
+            </div>
+
+            <!-- Advanced Regex (Collapsible) -->
+            <details style="margin-top:1rem">
+                <summary style="cursor:pointer;font-weight:600;color:var(--muted);user-select:none">
+                    <i class="bi bi-code-slash"></i> Opsi Lanjutan (Pola Regex Kustom)
+                </summary>
+                <div style="margin-top:.75rem;padding:1rem;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+                    <p style="font-size:.85em;color:var(--muted);margin-bottom:.75rem">
+                        Gunakan ini hanya jika dokumen memiliki format ekspresi reguler khusus. Isi dengan capture group <code>( )</code>.
+                    </p>
+                    <div class="form-group">
+                        <label for="nisn-pattern">Pola Regex ID / Nomor Unik <small style="color:var(--muted)">(cth: <code>NIP\s*[:\-]?\s*(\d{18})</code>)</small></label>
+                        <input type="text" id="nisn-pattern" name="nisn_pattern" placeholder="Biarkan kosong untuk deteksi otomatis" style="font-family:monospace">
+                    </div>
+                    <div class="form-group" style="margin-top:.5rem">
+                        <label for="nama-pattern">Pola Regex Nama / Deskripsi <small style="color:var(--muted)">(cth: <code>Nama\s+Guru\s*:\s*([^\n]{3,60})</code>)</small></label>
+                        <input type="text" id="nama-pattern" name="nama_pattern" placeholder="Biarkan kosong untuk deteksi otomatis" style="font-family:monospace">
+                    </div>
+                </div>
+            </details>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display:flex;gap:.75rem;margin-top:1.5rem;flex-wrap:wrap">
+            <button type="button" class="btn btn-secondary" id="preview-btn" style="flex:1;min-width:200px">
+                <span class="preview-text"><i class="bi bi-eye-fill"></i> Pindai &amp; Pratinjau (Preview)</span>
+                <span class="preview-loading" style="display:none"><i class="bi bi-arrow-repeat spin"></i> Memindai Dokumen&hellip;</span>
+            </button>
+            <button type="submit" class="btn btn-primary" id="split-btn" style="flex:1;min-width:200px">
+                <span class="btn-text"><i class="bi bi-scissors"></i> Pecah &amp; Unduh ZIP</span>
+                <span class="btn-loading" style="display:none"><i class="bi bi-arrow-repeat spin"></i> Memproses PDF&hellip;</span>
+            </button>
+        </div>
+    </form>
+
+    <!-- Preview Results Container -->
+    <div id="preview-section" style="display:none;margin-top:2rem;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+        <div style="padding:1rem 1.25rem;background:var(--surface-hover, rgba(0,0,0,0.02));border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+            <div>
+                <h3 style="margin:0;font-size:1.1rem;display:flex;align-items:center;gap:.5rem">
+                    <i class="bi bi-list-check" style="color:var(--primary)"></i> Hasil Pemindaian Dokumen
+                </h3>
+                <span id="preview-summary-badge" style="font-size:.88em;color:var(--muted)"></span>
+            </div>
+            <button type="button" class="btn btn-primary" id="download-from-preview-btn" onclick="triggerSplitDownload()">
+                <i class="bi bi-file-earmark-zip-fill"></i> Unduh ZIP Sekarang (<span id="preview-btn-count">0</span> File)
+            </button>
+        </div>
+
+        <!-- Warnings banner if any -->
+        <div id="preview-warnings" style="display:none;padding:.75rem 1.25rem;background:#fff8e6;border-bottom:1px solid #ffeeba;color:#856404;font-size:.88em">
+            <i class="bi bi-exclamation-triangle-fill" style="margin-right:.4rem"></i>
+            <span id="preview-warnings-text"></span>
+        </div>
+
+        <!-- Table -->
+        <div style="overflow-x:auto;max-height:450px">
+            <table style="width:100%;border-collapse:collapse;font-size:.9em;text-align:left">
+                <thead>
+                    <tr style="background:var(--surface);border-bottom:2px solid var(--border);position:sticky;top:0;z-index:2">
+                        <th style="padding:.6rem .8rem;width:40px">#</th>
+                        <th style="padding:.6rem .8rem;width:110px">Halaman</th>
+                        <th style="padding:.6rem .8rem;width:140px" id="th-id-col">ID / Nomor</th>
+                        <th style="padding:.6rem .8rem" id="th-name-col">Nama / Keterangan</th>
+                        <th style="padding:.6rem .8rem">Nama File Output (.pdf)</th>
+                        <th style="padding:.6rem .8rem;width:100px">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="preview-tbody">
+                    <!-- Populated via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Result / Status Area -->
+    <div id="result-area" class="result-area" style="display:none">
+        <div id="result-success" class="result-success" style="display:none">
+            <i class="bi bi-check-circle-fill"></i>
+            <span id="result-message">Selesai!</span>
+            <a id="download-btn" class="btn btn-success" download>
+                <i class="bi bi-download"></i> Unduh File ZIP
+            </a>
+        </div>
+        <div id="result-error" class="result-error" style="display:none">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <span id="error-message"></span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const splitForm         = document.getElementById('split-student-form');
+const fileInput         = document.getElementById('file-input');
+const uploadPrompt      = document.getElementById('upload-prompt');
+const fileInfo          = document.getElementById('file-info');
+const fileNameLabel     = document.getElementById('file-name-label');
+const fileSizeLabel     = document.getElementById('file-size-label');
+
+const docProfileSelect  = document.getElementById('doc-profile');
+const customLabelsGroup = document.getElementById('custom-labels-group');
+const splitModeSelect   = document.getElementById('split-mode');
+const fixedPagesGroup   = document.getElementById('fixed-pages-group');
+const keywordGroup      = document.getElementById('keyword-group');
+
+const previewBtn        = document.getElementById('preview-btn');
+const previewText       = previewBtn.querySelector('.preview-text');
+const previewLoading    = previewBtn.querySelector('.preview-loading');
+const splitBtn          = document.getElementById('split-btn');
+const btnText           = splitBtn.querySelector('.btn-text');
+const btnLoading        = splitBtn.querySelector('.btn-loading');
+
+const previewSection    = document.getElementById('preview-section');
+const previewTbody      = document.getElementById('preview-tbody');
+const previewSummaryBadge = document.getElementById('preview-summary-badge');
+const previewBtnCount   = document.getElementById('preview-btn-count');
+const previewWarnings   = document.getElementById('preview-warnings');
+const previewWarningsText = document.getElementById('preview-warnings-text');
+const thIdCol           = document.getElementById('th-id-col');
+const thNameCol         = document.getElementById('th-name-col');
+
+const resultArea        = document.getElementById('result-area');
+const resultSuccess     = document.getElementById('result-success');
+const resultMessage     = document.getElementById('result-message');
+const downloadBtn       = document.getElementById('download-btn');
+const resultError       = document.getElementById('result-error');
+const errorMsg          = document.getElementById('error-message');
+
+let currentFile = null;
+
+// Profile toggle
+docProfileSelect.addEventListener('change', () => {
+    const prof = docProfileSelect.value;
+    customLabelsGroup.style.display = prof === 'custom' ? 'block' : 'none';
+    previewSection.style.display = 'none';
+});
+
+// Mode toggle
+splitModeSelect.addEventListener('change', () => {
+    const mode = splitModeSelect.value;
+    fixedPagesGroup.style.display = mode === 'fixed' ? 'block' : 'none';
+    keywordGroup.style.display    = mode === 'keyword' ? 'block' : 'none';
+    previewSection.style.display = 'none';
+});
+
+// File selection handler
+function handleFileSelected(file) {
+    if (!file) return;
+    currentFile = file;
+    fileNameLabel.textContent = file.name;
+    fileSizeLabel.textContent = formatSize(file.size);
+    fileInfo.style.display = 'flex';
+    uploadPrompt.querySelector('p').textContent = 'File terpilih: ' + file.name;
+    uploadPrompt.querySelector('span').textContent = 'Klik "Ganti File" jika ingin mengganti';
+    previewSection.style.display = 'none';
+    hideError();
+}
+
+fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files[0]) {
+        handleFileSelected(fileInput.files[0]);
+    }
+});
+
+function clearFile() {
+    fileInput.value = '';
+    currentFile = null;
+    fileInfo.style.display = 'none';
+    uploadPrompt.querySelector('p').textContent = 'Seret & lepas file PDF gabungan di sini';
+    uploadPrompt.querySelector('span').textContent = 'atau klik untuk memilih file';
+    previewSection.style.display = 'none';
+    resultArea.style.display = 'none';
+}
+
+function getSelectedFile() {
+    if (currentFile) return currentFile;
+    if (fileInput.files && fileInput.files.length > 0) return fileInput.files[0];
+    return null;
+}
+
+// ── Preview Scan ─────────────────────────────────────────────────────────────
+previewBtn.addEventListener('click', async () => {
+    const file = getSelectedFile();
+    if (!file) {
+        showError('Pilih file PDF gabungan terlebih dahulu.');
+        return;
+    }
+
+    hideError();
+    previewText.style.display = 'none';
+    previewLoading.style.display = '';
+    previewBtn.disabled = true;
+
+    const fd = new FormData(splitForm);
+    fd.set('action', 'preview');
+    fd.delete('files');
+    fd.append('files', file);
+
+    try {
+        const res = await fetch(splitForm.dataset.endpoint, {
+            method: 'POST',
+            body: fd
+        });
+
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            showError(data.error || `Server error (${res.status})`);
+            return;
+        }
+
+        renderPreviewTable(data);
+    } catch (err) {
+        showError('Gagal memindai dokumen: ' + err.message);
+    } finally {
+        previewText.style.display = '';
+        previewLoading.style.display = 'none';
+        previewBtn.disabled = false;
+    }
+});
+
+function renderPreviewTable(data) {
+    const segments = data.segments || [];
+    previewTbody.innerHTML = '';
+
+    const idLabel = data.id_col_label || 'ID';
+    const nameLabel = data.name_col_label || 'Nama / Keterangan';
+    thIdCol.textContent = idLabel;
+    thNameCol.textContent = nameLabel;
+
+    const profLabel = data.profile_label || 'Dokumen';
+    previewSummaryBadge.textContent = `Ditemukan ${data.total_students} entitas dari ${data.total_pages} halaman [${profLabel}] (${data.filename})`;
+    previewBtnCount.textContent = data.total_students;
+
+    if (data.warnings && data.warnings.length > 0) {
+        previewWarningsText.textContent = data.warnings.join(' | ');
+        previewWarnings.style.display = 'block';
+    } else {
+        previewWarnings.style.display = 'none';
+    }
+
+    segments.forEach((seg) => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid var(--border)';
+        
+        const idVal = seg.id_val || seg.nisn || '';
+        const nameVal = seg.name_val || seg.nama || '';
+        const isComplete = idVal && nameVal;
+        const statusBadge = isComplete 
+            ? '<span style="color:#16a34a;font-weight:600"><i class="bi bi-check-circle"></i> Lengkap</span>'
+            : `<span style="color:#d97706;font-size:.85em"><i class="bi bi-exclamation-circle"></i> ${escHtml(seg.status)}</span>`;
+
+        tr.innerHTML = `
+            <td style="padding:.6rem .8rem;color:var(--muted)">${seg.index}</td>
+            <td style="padding:.6rem .8rem"><strong>${escHtml(seg.page_range_display)}</strong> <small style="color:var(--muted)">(${seg.pages_count} hal)</small></td>
+            <td style="padding:.6rem .8rem;font-family:monospace">${escHtml(idVal || '-')}</td>
+            <td style="padding:.6rem .8rem;font-weight:500">${escHtml(nameVal || '-')}</td>
+            <td style="padding:.6rem .8rem;font-family:monospace;color:var(--primary)">${escHtml(seg.filename)}</td>
+            <td style="padding:.6rem .8rem">${statusBadge}</td>
+        `;
+        previewTbody.appendChild(tr);
+    });
+
+    previewSection.style.display = 'block';
+    previewSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function triggerSplitDownload() {
+    splitForm.dispatchEvent(new Event('submit', { cancelable: true }));
+}
+
+// ── Submit & Split ZIP ───────────────────────────────────────────────────────
+splitForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const file = getSelectedFile();
+    if (!file) {
+        showError('Pilih file PDF gabungan terlebih dahulu.');
+        return;
+    }
+
+    hideError();
+    resultArea.style.display = 'none';
+    resultSuccess.style.display = 'none';
+    resultError.style.display = 'none';
+
+    btnText.style.display = 'none';
+    btnLoading.style.display = '';
+    splitBtn.disabled = true;
+
+    const fd = new FormData(splitForm);
+    fd.set('action', 'split');
+    fd.delete('files');
+    fd.append('files', file);
+
+    try {
+        const res = await fetch(splitForm.dataset.endpoint, {
+            method: 'POST',
+            body: fd
+        });
+
+        if (!res.ok) {
+            let errText = `Server error ${res.status}`;
+            try { const d = await res.json(); errText = d.error || errText; } catch {}
+            showError(errText);
+            return;
+        }
+
+        const ct = res.headers.get('Content-Type') || '';
+        if (ct.includes('application/json')) {
+            const d = await res.json();
+            showError(d.error || 'Terjadi kesalahan pada server.');
+            return;
+        }
+
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+
+        const cd = res.headers.get('Content-Disposition') || '';
+        const fnMatch = cd.match(/filename="?([^";\n]+)"?/);
+        const filename = fnMatch ? fnMatch[1].trim() : 'split_dokumen.zip';
+
+        downloadBtn.href = url;
+        downloadBtn.download = filename;
+        resultMessage.textContent = `Berhasil memotong PDF! File ZIP siap diunduh (termasuk ringkasan _split_summary.txt).`;
+
+        resultArea.style.display = '';
+        resultSuccess.style.display = '';
+        downloadBtn.click();
+
+    } catch (err) {
+        showError('Gagal memproses ke server: ' + err.message);
+    } finally {
+        btnText.style.display = '';
+        btnLoading.style.display = 'none';
+        splitBtn.disabled = false;
+    }
+});
+
+function showError(msg) {
+    resultArea.style.display = '';
+    resultError.style.display = '';
+    errorMsg.textContent = msg;
+}
+
+function hideError() {
+    resultError.style.display = 'none';
+}
+
+function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+</script>
+{% endblock %}

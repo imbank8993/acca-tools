@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - ACCA - TOOLS{% endblock %}
+
+{% block content %}
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>{{ title }}</h1>
+        <p>{{ description|safe }}</p>
+    </div>
+
+    <div class="tool-notes">
+        <p>
+            <strong>Cara Kerja:</strong> Unggah 1 file desain template kosong (PDF atau Gambar) dan 1 file data spreadsheet Excel/CSV.
+            Sistem akan menggabungkan teks penerima (*Mail Merge*) secara presisi dengan dukungan QR Code verifikasi keaslian.
+        </p>
+        <p>
+            <strong>Tips:</strong> Gunakan placeholder kolom dengan format <code>&#123;&#123;NamaKolom&#125;&#125;</code> (misal: <code>&#123;&#123;Nama&#125;&#125;</code> atau <code>&#123;&#123;Sebagai&#125;&#125;</code>).
+            Klik tombol <strong>Pratinjau (Live Preview)</strong> untuk melihat hasil render baris pertama sebelum men-generate seluruh berkas.
+        </p>
+    </div>
+
+    <form id="cert-form" data-endpoint="{{ endpoint }}">
+        <!-- Upload Section -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:1rem;margin-bottom:1.5rem">
+            <!-- Template Upload -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.25rem">
+                <label style="display:block;font-weight:600;margin-bottom:.5rem">
+                    <i class="bi bi-file-earmark-image-fill" style="color:var(--primary)"></i> 1. Template Sertifikat / Piagam
+                </label>
+                <input type="file" id="template-file" name="template_file" accept=".pdf,.png,.jpg,.jpeg" style="width:100%">
+                <small style="color:var(--muted);display:block;margin-top:.4rem">
+                    Format: PDF (1 halaman), PNG, atau JPG beresolusi tinggi (desain piagam kosong tanpa nama).
+                </small>
+                <div id="template-info" style="display:none;margin-top:.5rem;font-size:.85em;color:var(--primary);font-weight:500"></div>
+            </div>
+
+            <!-- Excel/CSV Upload -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.25rem">
+                <label style="display:block;font-weight:600;margin-bottom:.5rem">
+                    <i class="bi bi-file-earmark-spreadsheet-fill" style="color:#10b981"></i> 2. Data Penerima (Excel / CSV)
+                </label>
+                <input type="file" id="data-file" name="data_file" accept=".xlsx,.xls,.csv" style="width:100%">
+                <small style="color:var(--muted);display:block;margin-top:.4rem">
+                    Kolom yang disarankan: <code>Nama</code>, <code>Sebagai</code>, <code>No_Piagam</code>, <code>Predikat</code>, dll.
+                </small>
+                <div id="data-info" style="display:none;margin-top:.5rem;font-size:.85em;color:#10b981;font-weight:500"></div>
+            </div>
+        </div>
+
+        <!-- Available Columns Badges -->
+        <div id="columns-badge-container" style="display:none;margin-bottom:1.25rem;padding:.75rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+            <span style="font-size:.85em;color:var(--muted);display:block;margin-bottom:.4rem">
+                <i class="bi bi-tags-fill"></i> Kolom terdeteksi dari Excel (Klik untuk menyalin placeholder):
+            </span>
+            <div id="columns-pills" style="display:flex;flex-wrap:wrap;gap:.4rem"></div>
+        </div>
+
+        <!-- Fields Configuration Container -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.25rem;margin-bottom:1.5rem">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+                <h3 style="margin:0;font-size:1.05rem;display:flex;align-items:center;gap:.5rem">
+                    <i class="bi bi-type-h1" style="color:var(--primary)"></i> Pengaturan Bidang Teks Sertifikat
+                </h3>
+                <button type="button" class="btn btn-small" onclick="addNewField()" style="font-size:.82em">
+                    <i class="bi bi-plus-circle"></i> Tambah Bidang Teks
+                </button>
+            </div>
+
+            <div id="fields-container" style="display:flex;flex-direction:column;gap:.75rem">
+                <!-- Dynamically populated via JS, initially 3 default fields -->
+            </div>
+        </div>
+
+        <!-- QR Code Verification Card -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.25rem;margin-bottom:1.5rem">
+            <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.75rem">
+                <input type="checkbox" id="qr-enabled" name="qr_enabled" value="1" style="width:1.2rem;height:1.2rem;cursor:pointer">
+                <label for="qr-enabled" style="font-weight:600;cursor:pointer;margin:0">
+                    <i class="bi bi-qr-code"></i> Sematkan QR Code Verifikasi Keaslian
+                </label>
+            </div>
+
+            <div id="qr-options" style="display:none;margin-top:.75rem;padding-top:.75rem;border-top:1px dashed var(--border)">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:.75rem">
+                    <div>
+                        <label for="qr-content" style="font-size:.88em">Teks / URL Tujuan QR Code</label>
+                        <input type="text" id="qr-content" name="qr_content" value="https://acca.icgowa.sch.id/verify?cert=&#123;&#123;No_Piagam&#125;&#125;">
+                        <small style="color:var(--muted);display:block;margin-top:.2rem">Mendukung placeholder <code>&#123;&#123;Kolom&#125;&#125;</code></small>
+                    </div>
+                    <div>
+                        <label for="qr-position" style="font-size:.88em">Posisi QR Code</label>
+                        <select id="qr-position" name="qr_position">
+                            <option value="bottom-left" selected>Sudut Bawah Kiri</option>
+                            <option value="bottom-right">Sudut Bawah Kanan</option>
+                            <option value="bottom-center">Bawah Tengah</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="qr-size" style="font-size:.88em">Ukuran QR (pt)</label>
+                        <input type="number" id="qr-size" name="qr_size" min="30" max="180" value="70">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Output Options -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.25rem;margin-bottom:1.5rem">
+            <label style="display:block;font-weight:600;margin-bottom:.5rem">
+                <i class="bi bi-box-arrow-down"></i> Format File Output
+            </label>
+            <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
+                <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer">
+                    <input type="radio" name="output_format" value="zip" checked>
+                    <span><strong>File ZIP</strong> (PDF per siswa + PDF gabungan + rekap TXT)</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer">
+                    <input type="radio" name="output_format" value="single_pdf">
+                    <span><strong>1 File PDF Gabungan</strong> (Semua sertifikat berurutan siap cetak)</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:2rem">
+            <button type="button" class="btn btn-secondary" id="preview-btn" style="flex:1;min-width:200px">
+                <span class="preview-text"><i class="bi bi-eye-fill"></i> Pratinjau (Live Preview)</span>
+                <span class="preview-loading" style="display:none"><i class="bi bi-arrow-repeat spin"></i> Me-render Pratinjau&hellip;</span>
+            </button>
+            <button type="submit" class="btn btn-primary" id="generate-btn" style="flex:1;min-width:200px">
+                <span class="btn-text"><i class="bi bi-award-fill"></i> Generate Semua Sertifikat</span>
+                <span class="btn-loading" style="display:none"><i class="bi bi-arrow-repeat spin"></i> Memproses Seluruh Baris&hellip;</span>
+            </button>
+        </div>
+    </form>
+
+    <!-- Interactive Live Preview Section -->
+    <div id="preview-container" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:2rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+            <div>
+                <h3 style="margin:0;font-size:1.1rem;display:flex;align-items:center;gap:.5rem">
+                    <i class="bi bi-laptop" style="color:var(--primary)"></i> Pratinjau Halaman Pertama (Baris ke-1)
+                </h3>
+                <span id="preview-info-label" style="font-size:.85em;color:var(--muted)"></span>
+            </div>
+            <button type="button" class="btn btn-small btn-primary" onclick="triggerGenerate()">
+                <i class="bi bi-download"></i> Unduh Semua Hasil
+            </button>
+        </div>
+
+        <div style="text-align:center;background:#1e293b;padding:1rem;border-radius:8px;overflow-x:auto">
+            <img id="preview-img" src="" alt="Certificate Preview" style="max-width:100%;height:auto;border-radius:4px;box-shadow:0 10px 25px rgba(0,0,0,0.5)">
+        </div>
+    </div>
+
+    <!-- Status / Alert Area -->
+    <div id="result-area" class="result-area" style="display:none">
+        <div id="result-success" class="result-success" style="display:none">
+            <i class="bi bi-check-circle-fill"></i>
+            <span id="result-message">Selesai!</span>
+            <a id="download-btn" class="btn btn-success" download>
+                <i class="bi bi-download"></i> Unduh Berkas
+            </a>
+        </div>
+        <div id="result-error" class="result-error" style="display:none">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <span id="error-message"></span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const certForm        = document.getElementById('cert-form');
+const templateInput   = document.getElementById('template-file');
+const dataInput       = document.getElementById('data-file');
+const templateInfo    = document.getElementById('template-info');
+const dataInfo        = document.getElementById('data-info');
+const columnsBadgeCon = document.getElementById('columns-badge-container');
+const columnsPills    = document.getElementById('columns-pills');
+
+const fieldsContainer = document.getElementById('fields-container');
+const qrEnabled       = document.getElementById('qr-enabled');
+const qrOptions       = document.getElementById('qr-options');
+
+const previewBtn      = document.getElementById('preview-btn');
+const previewText     = previewBtn.querySelector('.preview-text');
+const previewLoading  = previewBtn.querySelector('.preview-loading');
+const generateBtn     = document.getElementById('generate-btn');
+const btnText         = generateBtn.querySelector('.btn-text');
+const btnLoading      = generateBtn.querySelector('.btn-loading');
+
+const previewContainer = document.getElementById('preview-container');
+const previewImg       = document.getElementById('preview-img');
+const previewInfoLabel = document.getElementById('preview-info-label');
+
+const resultArea      = document.getElementById('result-area');
+const resultSuccess   = document.getElementById('result-success');
+const resultMessage   = document.getElementById('result-message');
+const downloadBtn     = document.getElementById('download-btn');
+const resultError     = document.getElementById('result-error');
+const errorMsg        = document.getElementById('error-message');
+
+// Default initial fields
+let fieldsData = [
+    { label: "Nama Penerima", text: "{{Nama}}", y: 42, size: 30, font: "hebo", color: "#1a202c" },
+    { label: "Sebagai / Keterangan", text: "Sebagai {{Sebagai}}", y: 52, size: 18, font: "hebo", color: "#333333" },
+    { label: "Nomor Sertifikat", text: "No: {{No_Piagam}}", y: 24, size: 13, font: "hebo", color: "#4a5568" }
+];
+
+// QR Toggle
+qrEnabled.addEventListener('change', () => {
+    qrOptions.style.display = qrEnabled.checked ? 'block' : 'none';
+});
+
+// Render Fields UI
+function renderFields() {
+    fieldsContainer.innerHTML = '';
+    fieldsData.forEach((f, idx) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'background:var(--surface-hover, rgba(0,0,0,0.02));border:1px solid var(--border);border-radius:8px;padding:.75rem 1rem';
+        row.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;flex-wrap:wrap;gap:.4rem">
+                <strong style="font-size:.9em;color:var(--text)">Bidang #${idx + 1}: ${escHtml(f.label || 'Teks')}</strong>
+                ${fieldsData.length > 1 ? `<button type="button" class="btn btn-small" onclick="removeField(${idx})" style="color:#ef4444;background:none;border:none;cursor:pointer"><i class="bi bi-trash"></i> Hapus</button>` : ''}
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:.6rem;align-items:center">
+                <div style="grid-column: span 2">
+                    <label style="font-size:.8em;color:var(--muted)">Teks Template / Placeholder</label>
+                    <input type="text" value="${escHtml(f.text)}" onchange="updateField(${idx}, 'text', this.value)" style="width:100%">
+                </div>
+                <div>
+                    <label style="font-size:.8em;color:var(--muted)">Posisi Vertikal Y (${f.y}%)</label>
+                    <input type="range" min="5" max="95" value="${f.y}" oninput="updateField(${idx}, 'y', parseFloat(this.value)); this.previousElementSibling.textContent = 'Posisi Vertikal Y (' + this.value + '%)'">
+                </div>
+                <div>
+                    <label style="font-size:.8em;color:var(--muted)">Ukuran Font (pt)</label>
+                    <input type="number" min="8" max="90" value="${f.size}" onchange="updateField(${idx}, 'size', parseFloat(this.value))">
+                </div>
+                <div>
+                    <label style="font-size:.8em;color:var(--muted)">Jenis Huruf</label>
+                    <select onchange="updateField(${idx}, 'font', this.value)">
+                        <option value="hebo" ${f.font === 'hebo' ? 'selected' : ''}>Helvetica Bold (Modern)</option>
+                        <option value="tibo" ${f.font === 'tibo' ? 'selected' : ''}>Times Bold (Klasik)</option>
+                        <option value="tiro" ${f.font === 'tiro' ? 'selected' : ''}>Times Roman (Serif)</option>
+                        <option value="helv" ${f.font === 'helv' ? 'selected' : ''}>Helvetica Regular</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:.8em;color:var(--muted)">Warna Teks</label>
+                    <input type="color" value="${f.color}" onchange="updateField(${idx}, 'color', this.value)" style="height:38px;padding:2px;cursor:pointer;width:100%">
+                </div>
+            </div>
+        `;
+        fieldsContainer.appendChild(row);
+    });
+}
+
+function updateField(idx, prop, val) {
+    if (fieldsData[idx]) {
+        fieldsData[idx][prop] = val;
+    }
+}
+
+function addNewField() {
+    fieldsData.push({
+        label: "Bidang Tambahan",
+        text: "{{Predikat}}",
+        y: 65,
+        size: 16,
+        font: "hebo",
+        color: "#2b6cb0"
+    });
+    renderFields();
+}
+
+function removeField(idx) {
+    if (fieldsData.length > 1) {
+        fieldsData.splice(idx, 1);
+        renderFields();
+    }
+}
+
+renderFields();
+
+// File info & auto-scan excel
+templateInput.addEventListener('change', () => {
+    if (templateInput.files && templateInput.files[0]) {
+        templateInfo.textContent = 'Template: ' + templateInput.files[0].name;
+        templateInfo.style.display = 'block';
+    }
+});
+
+dataInput.addEventListener('change', async () => {
+    if (!dataInput.files || !dataInput.files[0]) return;
+    const file = dataInput.files[0];
+    dataInfo.textContent = 'Data: ' + file.name;
+    dataInfo.style.display = 'block';
+
+    // Auto-parse headers
+    const fd = new FormData();
+    fd.append('action', 'parse_data');
+    fd.append('data_file', file);
+
+    try {
+        const res = await fetch(certForm.dataset.endpoint, { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.success && data.headers && data.headers.length > 0) {
+            columnsPills.innerHTML = '';
+            data.headers.forEach(h => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-small';
+                btn.style.cssText = 'padding:.2rem .5rem;font-size:.8em;font-family:monospace;background:var(--surface-hover);border:1px solid var(--border)';
+                btn.textContent = `{{${h}}}`;
+                btn.title = `Klik untuk menyalin {{${h}}}`;
+                btn.onclick = () => {
+                    navigator.clipboard.writeText(`{{${h}}}`);
+                    alert(`Placeholder {{${h}}} berhasil disalin ke clipboard!`);
+                };
+                columnsPills.appendChild(btn);
+            });
+            columnsBadgeCon.style.display = 'block';
+            dataInfo.textContent = `Data: ${file.name} (${data.total_rows} penerima terdeteksi)`;
+        }
+    } catch (e) {
+        console.error("Gagal membaca header data", e);
+    }
+});
+
+// Preview Scan
+previewBtn.addEventListener('click', async () => {
+    if (!templateInput.files || !templateInput.files[0]) {
+        showError('Pilih file template sertifikat terlebih dahulu.');
+        return;
+    }
+    if (!dataInput.files || !dataInput.files[0]) {
+        showError('Pilih file data spreadsheet Excel/CSV terlebih dahulu.');
+        return;
+    }
+
+    hideError();
+    previewText.style.display = 'none';
+    previewLoading.style.display = '';
+    previewBtn.disabled = true;
+
+    const fd = new FormData(certForm);
+    fd.set('action', 'preview');
+    fd.set('fields_json', JSON.stringify(fieldsData));
+
+    try {
+        const res = await fetch(certForm.dataset.endpoint, { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+            showError(data.error || `Server error (${res.status})`);
+            return;
+        }
+
+        previewImg.src = data.image;
+        const recipientName = data.sample_row ? (data.sample_row.Nama || data.sample_row['Nama Siswa'] || 'Baris 1') : 'Baris 1';
+        previewInfoLabel.textContent = `Menampilkan sampel data: "${recipientName}" (Total ${data.total_rows} penerima)`;
+        previewContainer.style.display = 'block';
+        previewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    } catch (err) {
+        showError('Gagal me-render pratinjau: ' + err.message);
+    } finally {
+        previewText.style.display = '';
+        previewLoading.style.display = 'none';
+        previewBtn.disabled = false;
+    }
+});
+
+function triggerGenerate() {
+    certForm.dispatchEvent(new Event('submit', { cancelable: true }));
+}
+
+// Generate & Download
+certForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (!templateInput.files || !templateInput.files[0]) {
+        showError('Pilih file template sertifikat terlebih dahulu.');
+        return;
+    }
+    if (!dataInput.files || !dataInput.files[0]) {
+        showError('Pilih file data spreadsheet Excel/CSV terlebih dahulu.');
+        return;
+    }
+
+    hideError();
+    resultArea.style.display = 'none';
+    resultSuccess.style.display = 'none';
+    resultError.style.display = 'none';
+
+    btnText.style.display = 'none';
+    btnLoading.style.display = '';
+    generateBtn.disabled = true;
+
+    const fd = new FormData(certForm);
+    fd.set('action', 'generate');
+    fd.set('fields_json', JSON.stringify(fieldsData));
+
+    try {
+        const res = await fetch(certForm.dataset.endpoint, { method: 'POST', body: fd });
+
+        if (!res.ok) {
+            let errText = `Server error ${res.status}`;
+            try { const d = await res.json(); errText = d.error || errText; } catch {}
+            showError(errText);
+            return;
+        }
+
+        const ct = res.headers.get('Content-Type') || '';
+        if (ct.includes('application/json')) {
+            const d = await res.json();
+            showError(d.error || 'Terjadi kesalahan pada server.');
+            return;
+        }
+
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+
+        const cd = res.headers.get('Content-Disposition') || '';
+        const fnMatch = cd.match(/filename="?([^";\n]+)"?/);
+        const filename = fnMatch ? fnMatch[1].trim() : 'sertifikat_masal.zip';
+
+        downloadBtn.href = url;
+        downloadBtn.download = filename;
+        resultMessage.textContent = 'Berhasil men-generate seluruh piagam/sertifikat!';
+
+        resultArea.style.display = '';
+        resultSuccess.style.display = '';
+        downloadBtn.click();
+
+    } catch (err) {
+        showError('Gagal memproses ke server: ' + err.message);
+    } finally {
+        btnText.style.display = '';
+        btnLoading.style.display = 'none';
+        generateBtn.disabled = false;
+    }
+});
+
+function showError(msg) {
+    resultArea.style.display = '';
+    resultError.style.display = '';
+    errorMsg.textContent = msg;
+}
+
+function hideError() {
+    resultError.style.display = 'none';
+}
+
+function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

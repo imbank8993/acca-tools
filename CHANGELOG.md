@@ -4,6 +4,47 @@ All notable changes to **ACCA TOOLS** are documented here. The format is based o
 
 ## [Unreleased]
 
+### Added - ACCA Plus
+- **Konverter Soal ke Template ACCA CBT** (`/acca-plus/cbt-converter`) - otomatis mengonversi naskah soal Word (`.docx`) atau teks biasa milik guru ke format resmi 4-tabel ACCA CBT yang siap langsung diimpor ke sistem CBT:
+  - **Dukungan 8 Jenis Soal Lengkap**:
+    - `PG` (Pilihan Ganda Biasa dengan opsi A-E dan 1 kunci)
+    - `PGK` (Pilihan Ganda Kompleks / Checklist dengan banyak kunci terpisah koma)
+    - `BS` (Benar / Salah dengan baris pernyataan P1, P2... dan kunci B/S)
+    - `MJ` (Menjodohkan dengan pasangan premis kiri dan pasangan kanan)
+    - `CAT` (Kategorisasi / Pengelompokan item)
+    - `ISIAN` (Isian Singkat dengan dukungan multi-blank atau variasi jawaban)
+    - `ESAI` (Uraian bebas dengan panduan rubrik penilaian)
+    - `URUT` (Pengurutan langkah/tahapan dengan kunci urutan angka)
+  - **Mesin Ekstraksi & Deteksi Cerdas**:
+    - Membaca nomor soal, opsi jawaban (termasuk deteksi opsi inline multi-kolom dalam 1 baris), kunci jawaban inline atau tabel kunci di akhir dokumen (*bottom answer keys*), serta bobot poin.
+    - Deteksi opsi tebal (*bold runs*) atau berbintang (`*A.`) sebagai kunci jawaban otomatis jika tidak ada teks kunci eksplisit.
+    - Menjaga teks bacaan stimulus serta materi/indikator kisi-kisi.
+  - **Studio Penelaahan & Editor Interaktif**:
+    - Pratinjau visual seluruh butir soal sebelum digenerate.
+    - Statistik langsung: total butir soal, total poin, status kelengkapan kunci, serta filter cepat per tipe soal dan filter "Butuh Kunci".
+    - Guru dapat mengedit teks soal, mengganti jenis soal lewat dropdown, memilih kunci dengan sekali klik (radio/checkbox/toggle), menambah atau menghapus opsi/soal.
+  - **Generator DOCX 4-Tabel Sempurna**:
+    - Menyusun ulang 4 tabel resmi: `TABEL SOAL`, `TABEL KISI-KISI / MATERI`, `TABEL STIMULUS`, dan `TABEL PETUNJUK`.
+    - Menggunakan kloning XML baris (*deep copy*) sehingga lebar kolom, border, font, margin, dan shading tabel 100% identik dengan template resmi `template_soal_pengetahuan.docx`.
+
+### Added — ACCA Plus
+- **Certificate Generator** (`/acca-plus/certificate-generator`) — bulk generate certificates or piagam from a PDF/image design template and an Excel (`.xlsx`, `.xls`) or CSV recipient list.
+  - Automatic Excel column scanning with one-click placeholder pills (`{{Nama}}`, `{{Sebagai}}`, `{{No_Piagam}}`, etc.).
+  - Configurable typography per field: vertical position (Y percentage), font size, font family (Helvetica Bold, Times Bold, Serif, Sans), color picker, and center alignment.
+  - Optional **QR Code verification**: generates and stamps dynamic verification QR codes on designated corners (e.g. `https://acca.icgowa.sch.id/verify?cert={{No_Piagam}}`).
+  - **Live Preview**: visual rendering of Row #1 directly in the browser so users can fine-tune text positioning before generating the batch.
+  - Multi-format output: downloadable ZIP containing individual PDFs, consolidated print-ready PDF (`_Semua_Piagam_Gabungan.pdf`), and summary report (`_certificate_summary.txt`).
+- **Split Document by Profile** (`/acca-plus/split-pdf`) — split bulk PDF documents into individual files using automated identity detection with multi-profile support:
+  - **Document Profiles**:
+    - **Siswa / Santri**: extracts 10-digit NISN & Student Name (Rapor RDM/Kurikulum Merdeka, Kartu Ujian/KPU, SKL).
+    - **Guru / GTK / Pegawai**: extracts 18-digit NIP or 16-digit NUPTK & Teacher Name (SKP, Slip Gaji, SK Pembagian Tugas).
+    - **Surat Dinas / SK**: extracts Nomor Surat/SK & Perihal/Tentang.
+    - **Kustom / Label Bebas**: allows users to specify custom label pairs (e.g. `No. Peserta` & `Mata Pelajaran`, `NIK` & `Nama`) without writing regex.
+  - **Three splitting modes**: Auto-detect (entity transition), Fixed Pages per file, and First-Page Keyword.
+  - Interactive **Preview / Scan**: live preview table with dynamically adjusted column headers based on active profile.
+  - Customizable naming formats (`{id}_{nama}.pdf`, `{no}_{id}_{nama}.pdf`, `{prefix}_{id}_{nama}.pdf`, etc.) with uppercase formatting option.
+  - Exports a single downloadable ZIP containing losslessly sliced sub-PDFs and a formatted `_split_summary.txt` report.
+
 ### Added — Image Tools
 
 - **Merge Images** — combine two or more images into one with a balanced grid by default, plus horizontal and vertical layouts. Images are scaled with aspect ratio preserved (justified rows) so they line up flush with no leftover background bands. The output size is bounded by a configurable max output width (plus hard safety caps) so merging large multi-megapixel photos stays fast instead of hanging on an oversized canvas. Configurable spacing, background/border color, and PNG/JPG/WebP output. Uses the universal upload template with a new reusable `color` form input type.
