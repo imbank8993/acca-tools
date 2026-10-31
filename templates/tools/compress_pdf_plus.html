@@ -11,8 +11,8 @@
     <div class="tool-notes">
         <p>
             <strong>How it works:</strong>
-            Lossless mode preserves visual quality and selectable text. Other modes
-            search image quality and resolution for the best result within your size limit.
+            Smart compression optimizes embedded images at their displayed size while
+            keeping text, table lines, and transparency. Whole pages are never converted to images.
         </p>
         <p style="font-size:.9em;color:var(--muted)">
             <i class="bi bi-info-circle"></i>
@@ -68,13 +68,14 @@
             <div class="form-group option-group" style="margin-top:1rem">
                 <label for="compression-mode"><strong>Compression mode</strong></label>
                 <select id="compression-mode" name="mode">
-                    <option value="lossless" selected>Lossless — preserve quality</option>
+                    <option value="smart" selected>Smart target — keep text and tables sharp</option>
+                    <option value="lossless">Lossless — preserve every image pixel</option>
                     <option value="balanced">Compress images — keep selectable text</option>
-                    <option value="render">Aggressive — render pages as images</option>
                 </select>
                 <small style="color:var(--muted);display:block;margin-top:.3rem;margin-left:1.5rem">
-                    Only lossless mode preserves quality. Aggressive mode can blur small text
-                    and removes selectable text, links, and forms. No mode can guarantee every size target.
+                    Smart mode reduces oversized logos and photos without rasterizing text or tables.
+                    Lossless mode preserves image resolution. If a limit cannot be reached safely,
+                    the result shows the smallest size achieved instead of making text unreadable.
                 </small>
             </div>
         </div>
@@ -306,7 +307,7 @@ form.addEventListener('submit', async (e) => {
             document.getElementById('sz-note').textContent =
                 `Target not fully met — ${fmtBytes(diff)} above target. ` +
                 `The selected mode could not reach this limit. Lossless compression has limits; ` +
-                `image compression or aggressive mode may reduce quality.`;
+                `Smart mode optimizes embedded images while preserving text and table lines.`;
         }
 
         resultArea.style.display = '';
