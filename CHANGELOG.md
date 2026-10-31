@@ -4,30 +4,6 @@ All notable changes to **ACCA TOOLS** are documented here. The format is based o
 
 ## [Unreleased]
 
-### Added - ACCA Plus
-- **Konverter Soal ke Template ACCA CBT** (/acca-plus/cbt-converter) - otomatis mengonversi naskah soal PDF (.pdf), Word (.docx), atau teks biasa milik guru ke format resmi 4-tabel ACCA CBT yang siap langsung diimpor ke sistem CBT:
-  - **Dukungan 8 Jenis Soal Lengkap**:
-    - `PG` (Pilihan Ganda Biasa dengan opsi A-E dan 1 kunci)
-    - `PGK` (Pilihan Ganda Kompleks / Checklist dengan banyak kunci terpisah koma)
-    - `BS` (Benar / Salah dengan baris pernyataan P1, P2... dan kunci B/S)
-    - `MJ` (Menjodohkan dengan pasangan premis kiri dan pasangan kanan)
-    - `CAT` (Kategorisasi / Pengelompokan item)
-    - `ISIAN` (Isian Singkat dengan dukungan multi-blank atau variasi jawaban)
-    - `ESAI` (Uraian bebas dengan panduan rubrik penilaian)
-    - `URUT` (Pengurutan langkah/tahapan dengan kunci urutan angka)
-  - **Mesin Ekstraksi & Deteksi Cerdas**:
-    - Dukungan membaca naskah soal langsung dari **PDF (.pdf)** dengan pemetaan kolom ujian 1-kolom atau 2-kolom.
-    - Membaca nomor soal, opsi jawaban (termasuk deteksi opsi inline multi-kolom dalam 1 baris), kunci jawaban inline atau tabel kunci di akhir dokumen (*bottom answer keys*), serta bobot poin.
-    - Deteksi opsi tebal (*bold runs*) atau berbintang (`*A.`) sebagai kunci jawaban otomatis jika tidak ada teks kunci eksplisit.
-    - Menjaga teks bacaan stimulus serta materi/indikator kisi-kisi.
-  - **Studio Penelaahan & Editor Interaktif**:
-    - Pratinjau visual seluruh butir soal sebelum digenerate.
-    - Statistik langsung: total butir soal, total poin, status kelengkapan kunci, serta filter cepat per tipe soal dan filter "Butuh Kunci".
-    - Guru dapat mengedit teks soal, mengganti jenis soal lewat dropdown, memilih kunci dengan sekali klik (radio/checkbox/toggle), menambah atau menghapus opsi/soal.
-  - **Generator DOCX 4-Tabel Sempurna**:
-    - Menyusun ulang 4 tabel resmi: `TABEL SOAL`, `TABEL KISI-KISI / MATERI`, `TABEL STIMULUS`, dan `TABEL PETUNJUK`.
-    - Menggunakan kloning XML baris (*deep copy*) sehingga lebar kolom, border, font, margin, dan shading tabel 100% identik dengan template resmi `template_soal_pengetahuan.docx`.
-
 ### Added — ACCA Plus
 - **Certificate Generator** (`/acca-plus/certificate-generator`) — bulk generate certificates or piagam from a PDF/image design template and an Excel (`.xlsx`, `.xls`) or CSV recipient list.
   - Automatic Excel column scanning with one-click placeholder pills (`{{Nama}}`, `{{Sebagai}}`, `{{No_Piagam}}`, etc.).
