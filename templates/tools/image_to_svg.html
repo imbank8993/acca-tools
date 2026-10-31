@@ -2,7 +2,7 @@
 {% block title %}{{ title }} - ACCA - TOOLS{% endblock %}
 
 {% block content %}
-<div class="tool-page">
+<div class="tool-page vector-tool-page">
     <div class="tool-header">
         <h1>{{ title }}</h1>
         <p>{{ description|safe }}</p>
@@ -20,7 +20,7 @@
     </div>
 
     <!-- Upload Zone -->
-    <div class="card" style="margin-bottom:1.5rem;padding:1.25rem">
+    <div class="card upload-card">
         <div class="upload-zone" id="img-upload-zone" style="cursor:pointer">
             <input type="file" id="img-file-input" accept="image/png,image/jpeg,image/webp,image/bmp" style="display:none">
             <div class="upload-prompt" id="img-upload-prompt">
@@ -31,51 +31,62 @@
             </div>
         </div>
 
-        <div id="file-info-badge" style="display:none;margin-top:.75rem;padding:.5rem .75rem;background:rgba(var(--primary-rgb, 43, 87, 154), 0.1);border-radius:6px;font-weight:500;align-items:center;justify-content:space-between">
-            <span><i class="bi bi-file-earmark-image-fill text-success"></i> <strong id="selected-filename"></strong> <span id="selected-filesize" style="color:var(--muted);font-weight:normal"></span></span>
-            <button type="button" class="btn btn-sm btn-outline" onclick="clearSelectedImage()" style="padding:.2rem .5rem;font-size:.8rem"><i class="bi bi-x"></i> Change Image</button>
+        <div id="file-info-badge" class="file-badge-container" style="display:none">
+            <div class="file-badge-info">
+                <i class="bi bi-file-earmark-image-fill text-success" style="flex-shrink:0"></i>
+                <strong id="selected-filename" class="file-badge-name"></strong>
+                <span id="selected-filesize" class="file-badge-size"></span>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline file-badge-btn" onclick="clearSelectedImage()">
+                <i class="bi bi-x"></i> Change Image
+            </button>
         </div>
     </div>
 
     <!-- Studio & Settings (Hidden until file selected) -->
     <div id="vector-studio" style="display:none">
         <!-- Preset Bar -->
-        <div class="card" style="margin-bottom:1.25rem;padding:1rem">
-            <label style="font-weight:600;font-size:.85rem;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:.5rem">
+        <div class="card preset-card">
+            <label class="preset-label">
                 Quick Presets (1-Click):
             </label>
-            <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <div class="preset-list">
                 <button type="button" class="preset-btn active" id="preset-poster" onclick="applyPreset('poster')">
-                    <i class="bi bi-image-fill"></i> Poster &amp; Detailed Design
+                    <i class="bi bi-image-fill"></i> <span>Poster &amp; Detailed Design</span>
                 </button>
                 <button type="button" class="preset-btn" id="preset-logo" onclick="applyPreset('logo')">
-                    <i class="bi bi-palette-fill"></i> Color Logo
+                    <i class="bi bi-palette-fill"></i> <span>Color Logo</span>
                 </button>
                 <button type="button" class="preset-btn" id="preset-sig" onclick="applyPreset('sig')">
-                    <i class="bi bi-pen-fill"></i> Signature
+                    <i class="bi bi-pen-fill"></i> <span>Signature</span>
                 </button>
                 <button type="button" class="preset-btn" id="preset-stamp" onclick="applyPreset('stamp')">
-                    <i class="bi bi-award-fill"></i> Official Stamp
+                    <i class="bi bi-award-fill"></i> <span>Official Stamp</span>
                 </button>
                 <button type="button" class="preset-btn" id="preset-diagram" onclick="applyPreset('diagram')">
-                    <i class="bi bi-diagram-3-fill"></i> Diagram / Line Art
+                    <i class="bi bi-diagram-3-fill"></i> <span>Diagram / Line Art</span>
                 </button>
                 <button type="button" class="preset-btn" id="preset-custom" onclick="applyPreset('custom')">
-                    <i class="bi bi-sliders"></i> Custom
+                    <i class="bi bi-sliders"></i> <span>Custom</span>
                 </button>
             </div>
         </div>
 
         <!-- Controls Form -->
-        <div class="card" style="margin-bottom:1.5rem;padding:1.25rem">
-            <h3 style="font-size:1rem;margin:0 0 1rem 0;display:flex;align-items:center;gap:.5rem">
-                <i class="bi bi-sliders" style="color:var(--primary)"></i> Vector Settings
-            </h3>
+        <div class="card settings-card">
+            <div class="settings-header">
+                <h3 class="settings-title">
+                    <i class="bi bi-sliders" style="color:var(--primary)"></i> Vector Settings
+                </h3>
+                <button type="button" class="btn btn-outline btn-sm" onclick="runVectorize()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh Preview
+                </button>
+            </div>
 
-            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:1rem">
+            <div class="settings-grid">
                 <!-- Mode Selector -->
                 <div>
-                    <label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:.35rem">Vector Mode</label>
+                    <label class="control-label">Vector Mode</label>
                     <select id="ctrl-mode" class="form-select form-select-sm" onchange="onModeChange()">
                         <option value="color" selected>Color (Full Color B&eacute;zier)</option>
                         <option value="bw">Monochrome (Single Ink / Line Art)</option>
@@ -84,7 +95,7 @@
 
                 <!-- Curve Fitting Mode -->
                 <div>
-                    <label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:.35rem">Curve Type</label>
+                    <label class="control-label">Curve Type</label>
                     <select id="ctrl-curve-mode" class="form-select form-select-sm" onchange="scheduleUpdate()">
                         <option value="spline" selected>Spline (Smooth B&eacute;zier Curves)</option>
                         <option value="polygon">Polygon (Sharp Geometric Edges)</option>
@@ -93,7 +104,7 @@
 
                 <!-- Layering (Color Mode Only) -->
                 <div id="grp-hierarchical">
-                    <label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:.35rem">Layering Mode</label>
+                    <label class="control-label">Layering Mode</label>
                     <select id="ctrl-hierarchical" class="form-select form-select-sm" onchange="scheduleUpdate()">
                         <option value="stacked" selected>Stacked (Gradient Layers - Recommended for Posters)</option>
                         <option value="cutout">Cutout (Flat Mosaic - Recommended for Logos)</option>
@@ -103,7 +114,7 @@
                 <!-- Color Precision (Color Mode Only) -->
                 <div id="grp-color-precision">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem">
-                        <label style="font-weight:600;font-size:.85rem">Color Precision (Gradients):</label>
+                        <label class="control-label" style="margin-bottom:0">Color Precision (Gradients):</label>
                         <span id="val-color-precision" style="font-weight:700;color:var(--primary);font-size:.85rem">8 (Maximum / Photos)</span>
                     </div>
                     <input type="range" id="ctrl-color-precision" class="form-range" min="3" max="8" step="1" value="8" oninput="updateColorPrecisionLabel(this.value); scheduleUpdate()">
@@ -112,7 +123,7 @@
 
                 <!-- Ink Color (Only BW Mode) -->
                 <div id="grp-fill-color" style="display:none">
-                    <label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:.35rem">Vector Ink Color</label>
+                    <label class="control-label">Vector Ink Color</label>
                     <div style="display:flex;align-items:center;gap:.5rem">
                         <input type="color" id="ctrl-fill-color" class="form-control form-control-color" value="#000000" style="width:40px;height:32px;padding:2px" onchange="scheduleUpdate()">
                         <div style="display:flex;gap:.25rem">
@@ -128,7 +139,7 @@
                 <!-- Threshold (BW Mode Only) -->
                 <div id="grp-threshold" style="display:none">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem">
-                        <label style="font-weight:600;font-size:.85rem">Contrast Threshold:</label>
+                        <label class="control-label" style="margin-bottom:0">Contrast Threshold:</label>
                         <span id="val-threshold" style="font-weight:700;color:var(--primary);font-size:.85rem">128</span>
                     </div>
                     <input type="range" id="ctrl-threshold" class="form-range" min="0" max="255" step="1" value="128" oninput="document.getElementById('val-threshold').textContent=(this.value == 0 ? 'Auto (Otsu)' : this.value); scheduleUpdate()">
@@ -138,7 +149,7 @@
                 <!-- Filter Speckles -->
                 <div>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem">
-                        <label style="font-weight:600;font-size:.85rem">Speckle / Noise Filter:</label>
+                        <label class="control-label" style="margin-bottom:0">Speckle / Noise Filter:</label>
                         <span id="val-speckle" style="font-weight:700;color:var(--primary);font-size:.85rem">1 px</span>
                     </div>
                     <input type="range" id="ctrl-speckle" class="form-range" min="0" max="30" step="1" value="1" oninput="document.getElementById('val-speckle').textContent=this.value + ' px'; scheduleUpdate()">
@@ -150,7 +161,7 @@
                     <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" id="ctrl-trans-bg" onchange="scheduleUpdate()">
                         <label class="form-check-label" for="ctrl-trans-bg" style="font-weight:600;font-size:.85rem">Transparent Background</label>
-                        <small style="display:block;color:var(--muted);font-size:.75rem">Keep disabled for posters to preserve solid canvas</small>
+                        <small style="display:block;color:var(--muted);font-size:.75rem">Keep disabled for posters to preserve canvas</small>
                     </div>
                     <div class="form-check form-switch" id="grp-invert" style="display:none">
                         <input class="form-check-input" type="checkbox" id="ctrl-invert" onchange="scheduleUpdate()">
@@ -158,26 +169,21 @@
                     </div>
                 </div>
             </div>
-
-            <div style="margin-top:1rem;display:flex;justify-content:flex-end;gap:.5rem">
-                <button type="button" class="btn btn-outline btn-sm" onclick="runVectorize()">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh Preview
-                </button>
-            </div>
         </div>
 
         <!-- Visual Comparison Section -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem" id="comparison-grid">
+        <div class="comparison-grid" id="comparison-grid">
             <!-- Left: Original Image -->
             <div class="card preview-card">
                 <div class="preview-card-header">
                     <div class="preview-title">
-                        <i class="bi bi-file-earmark-image"></i> Original Image (Raster)
+                        <i class="bi bi-file-earmark-image"></i>
+                        <span>Original Image (Raster)</span>
                     </div>
                     <span id="lbl-orig-dim" class="badge-dim">0 &times; 0</span>
                 </div>
                 <div class="view-box">
-                    <img id="preview-orig-img" src="" alt="Original" style="max-width:100%;max-height:480px;object-fit:contain">
+                    <img id="preview-orig-img" src="" alt="Original">
                 </div>
             </div>
 
@@ -185,7 +191,8 @@
             <div class="card preview-card">
                 <div class="preview-card-header">
                     <div class="preview-title text-primary">
-                        <i class="bi bi-vector-pen"></i> Vector SVG Result
+                        <i class="bi bi-vector-pen"></i>
+                        <span>Vector SVG Result</span>
                         <span id="lbl-engine" class="badge-engine"><i class="bi bi-cpu-fill"></i> B&eacute;zier Spline</span>
                     </div>
                     <div class="preview-meta">
@@ -193,35 +200,36 @@
                         <span id="lbl-svg-dim" class="badge-dim">0 &times; 0</span>
                     </div>
                 </div>
-                <div class="view-box" id="svg-render-container" style="position:relative;background:#ffffff">
+                <div class="view-box" id="svg-render-container">
                     <div id="svg-loading-overlay" class="loading-overlay">
                         <div class="spinner-border text-primary" role="status" style="width:2.2rem;height:2.2rem;border-width:0.22em"></div>
                         <span style="font-size:.85rem;font-weight:600;margin-top:.6rem;color:var(--text)">Computing B&eacute;zier spline curves...</span>
                     </div>
-                    <div id="svg-content" style="max-width:100%;max-height:480px;width:100%;height:100%;overflow:hidden;display:flex;align-items:center;justify-content:center"></div>
+                    <div id="svg-content"></div>
                 </div>
             </div>
         </div>
 
         <!-- Floating Download Bar -->
-        <div class="floating-action-bar">
+        <div class="floating-action-bar" id="floating-action-bar">
             <div class="action-bar-info">
                 <div class="action-bar-title">
-                    <i class="bi bi-check-circle-fill text-success"></i> Vector SVG Ready
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                    <span>Vector SVG Ready</span>
                 </div>
                 <div class="action-bar-subtitle">
-                    Mathematical B&eacute;zier curves &bull; Infinite scalability
+                    Mathematical B&eacute;zier curves &bull; Infinite resolution
                 </div>
             </div>
-            <div class="action-bar-buttons">
-                <button type="button" class="btn btn-outline" id="btn-copy-svg" onclick="copySvgCode()">
-                    <i class="bi bi-clipboard"></i> Copy SVG
+            <div class="action-bar-actions">
+                <button type="button" class="btn btn-outline action-btn" id="btn-copy-svg" onclick="copySvgCode()">
+                    <i class="bi bi-clipboard"></i> <span>Copy SVG</span>
                 </button>
-                <button type="button" class="btn btn-outline" onclick="downloadMasterSvg('optimal')" title="Optimized compact vector for web">
-                    <i class="bi bi-download"></i> Download SVG (Web)
+                <button type="button" class="btn btn-outline action-btn" onclick="downloadMasterSvg('optimal')" title="Optimized compact vector for web">
+                    <i class="bi bi-download"></i> <span>Download SVG (Web)</span>
                 </button>
-                <button type="button" class="btn btn-primary" id="btn-download-svg" onclick="downloadMasterSvg('full')">
-                    <i class="bi bi-file-earmark-arrow-down-fill"></i> Download Master SVG
+                <button type="button" class="btn btn-primary action-btn action-btn-main" id="btn-download-svg" onclick="downloadMasterSvg('full')">
+                    <i class="bi bi-file-earmark-arrow-down-fill"></i> <span>Download Master SVG</span>
                 </button>
             </div>
         </div>
@@ -229,19 +237,110 @@
 </div>
 
 <style>
+/* Page Layout */
+.vector-tool-page {
+    max-width: 1040px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.tool-notes {
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+.tool-notes code {
+    word-break: break-all;
+    white-space: normal;
+}
+
+.upload-card {
+    margin-bottom: 1.5rem;
+    padding: 1.25rem;
+    box-sizing: border-box;
+    max-width: 100%;
+}
+
+/* File Badge */
+.file-badge-container {
+    margin-top: .75rem;
+    padding: .5rem .75rem;
+    background: rgba(var(--primary-rgb, 43, 87, 154), 0.1);
+    border-radius: 6px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    box-sizing: border-box;
+    max-width: 100%;
+}
+.file-badge-info {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    flex: 1 1 200px;
+}
+.file-badge-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 260px;
+}
+.file-badge-size {
+    color: var(--muted);
+    font-weight: normal;
+    font-size: .85rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.file-badge-btn {
+    padding: .25rem .6rem;
+    font-size: .8rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Preset Bar */
+.preset-card {
+    margin-bottom: 1.25rem;
+    padding: 1rem;
+    box-sizing: border-box;
+    max-width: 100%;
+}
+.preset-label {
+    font-weight: 600;
+    font-size: .85rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: .6rem;
+    letter-spacing: .03em;
+}
+.preset-list {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
 .preset-btn {
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
-    padding: .4rem .85rem;
+    padding: .45rem .85rem;
     border-radius: 6px;
-    font-size: .85rem;
+    font-size: .82rem;
     font-weight: 600;
     cursor: pointer;
     transition: all .2s ease;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: .35rem;
+    gap: .4rem;
+    box-sizing: border-box;
 }
 .preset-btn:hover {
     border-color: var(--primary);
@@ -252,6 +351,42 @@
     color: #fff;
     border-color: var(--primary);
 }
+
+/* Settings Form */
+.settings-card {
+    margin-bottom: 1.5rem;
+    padding: 1.25rem;
+    box-sizing: border-box;
+    max-width: 100%;
+}
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+.settings-title {
+    font-size: 1rem;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+}
+.control-label {
+    font-weight: 600;
+    font-size: .85rem;
+    display: block;
+    margin-bottom: .35rem;
+}
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
 .color-swatch {
     width: 24px;
     height: 24px;
@@ -264,18 +399,33 @@
     transform: scale(1.15);
 }
 
+/* Visual Comparison */
+.comparison-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
 .preview-card {
     padding: 1.25rem;
     display: flex;
     flex-direction: column;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 .preview-card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
     margin-bottom: 0.85rem;
-    min-height: 32px;
+    flex-wrap: wrap;
+    min-width: 0;
 }
 .preview-title {
     font-size: 0.95rem;
@@ -284,13 +434,15 @@
     display: flex;
     align-items: center;
     gap: 0.45rem;
-    white-space: nowrap;
+    flex-wrap: wrap;
+    min-width: 0;
 }
 .preview-meta {
     display: flex;
     gap: 0.4rem;
     align-items: center;
-    white-space: nowrap;
+    flex-wrap: wrap;
+    margin-left: auto;
 }
 .badge-engine {
     font-size: 0.7rem;
@@ -299,7 +451,7 @@
     color: var(--primary);
     border: 1px solid rgba(var(--primary-rgb, 43, 87, 154), 0.25);
     border-radius: 4px;
-    padding: 0.2rem 0.45rem;
+    padding: 0.15rem 0.4rem;
     white-space: nowrap;
     display: inline-flex;
     align-items: center;
@@ -312,7 +464,7 @@
     color: #15803d;
     border: 1px solid rgba(34, 197, 94, 0.3);
     border-radius: 4px;
-    padding: 0.2rem 0.5rem;
+    padding: 0.15rem 0.45rem;
     white-space: nowrap;
 }
 [data-theme="dark"] .badge-size {
@@ -326,15 +478,15 @@
     color: var(--muted);
     border: 1px solid var(--border);
     border-radius: 4px;
-    padding: 0.2rem 0.5rem;
+    padding: 0.15rem 0.45rem;
     white-space: nowrap;
 }
 
 .view-box {
-    min-height: 400px;
+    min-height: 340px;
     max-height: 520px;
-    height: 480px;
-    background: var(--bg);
+    height: 460px;
+    background: #ffffff;
     border: 1px solid var(--border);
     border-radius: 8px;
     display: flex;
@@ -342,12 +494,41 @@
     justify-content: center;
     padding: 0.75rem;
     overflow: hidden;
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
 }
+#preview-orig-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+#svg-content {
+    max-width: 100%;
+    max-height: 100%;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+}
+#svg-content svg {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
+    display: block !important;
+}
+
 .loading-overlay {
     display: none;
     position: absolute;
     inset: 0;
-    background: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.88);
     z-index: 20;
     flex-direction: column;
     align-items: center;
@@ -356,88 +537,179 @@
     border-radius: 7px;
 }
 [data-theme="dark"] .loading-overlay {
-    background: rgba(20, 24, 33, 0.85);
+    background: rgba(20, 24, 33, 0.88);
 }
 .checkerboard {
     background-image: linear-gradient(45deg, #e5e7eb 25%, transparent 25%), 
                       linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), 
                       linear-gradient(45deg, transparent 75%, #e5e7eb 75%), 
-                      linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
-    background-size: 16px 16px;
-    background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+                      linear-gradient(-45deg, transparent 75%, #e5e7eb 75%) !important;
+    background-size: 16px 16px !important;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0px !important;
+    background-color: transparent !important;
 }
 [data-theme="dark"] .checkerboard {
     background-image: linear-gradient(45deg, #1f2937 25%, transparent 25%), 
                       linear-gradient(-45deg, #1f2937 25%, transparent 25%), 
                       linear-gradient(45deg, transparent 75%, #1f2937 75%), 
-                      linear-gradient(-45deg, transparent 75%, #1f2937 75%);
+                      linear-gradient(-45deg, transparent 75%, #1f2937 75%) !important;
 }
 
+/* Floating Action Bar */
 .floating-action-bar {
     position: sticky;
-    bottom: 1.5rem;
+    bottom: 1.25rem;
     background: var(--surface);
     border: 1px solid var(--border);
-    box-shadow: 0 12px 36px rgba(0,0,0,0.14);
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.12);
     border-radius: 12px;
-    padding: 1rem 1.5rem;
+    padding: 0.85rem 1.25rem;
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
-    gap: 1.5rem;
+    gap: 0.85rem 1.25rem;
     z-index: 90;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(12px);
+    width: 100%;
+    box-sizing: border-box;
 }
 .action-bar-info {
-    flex: 1 1 auto;
-    min-width: 250px;
+    flex: 1 1 200px;
+    min-width: 0;
 }
 .action-bar-title {
-    font-size: 1.05rem;
+    font-size: 1rem;
     font-weight: 700;
     color: var(--text);
     display: flex;
     align-items: center;
     gap: 0.45rem;
-    white-space: nowrap;
 }
 .action-bar-subtitle {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--muted);
-    margin-top: 0.2rem;
-    white-space: nowrap;
+    margin-top: 0.15rem;
+    overflow-wrap: break-word;
 }
-.action-bar-buttons {
-    flex: 0 0 auto;
+.action-bar-actions {
     display: flex;
-    gap: 0.65rem;
+    flex-wrap: wrap;
     align-items: center;
-    white-space: nowrap;
+    gap: 0.5rem;
+    flex: 0 1 auto;
 }
-.action-bar-buttons .btn {
-    white-space: nowrap;
-    padding: 0.55rem 1.15rem;
-    font-size: 0.9rem;
+.action-btn {
+    font-size: 0.85rem;
     font-weight: 600;
+    padding: 0.5rem 0.95rem;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
+}
+.action-btn-main {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+    box-shadow: 0 2px 6px rgba(var(--primary-rgb, 43, 87, 154), 0.3);
+}
+.action-btn-main:hover {
+    background: var(--primary-hover, #1d4ed8);
+    border-color: var(--primary-hover, #1d4ed8);
+    color: #ffffff;
 }
 
-@media (max-width: 900px) {
-    #comparison-grid {
-        grid-template-columns: 1fr !important;
+/* Tablet & Mobile Responsiveness */
+@media (max-width: 860px) {
+    .comparison-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
     }
     .view-box {
         height: 380px;
     }
-    .floating-action-bar {
+}
+
+@media (max-width: 640px) {
+    .preset-list {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.45rem;
+    }
+    .preset-btn {
+        justify-content: center;
+        padding: 0.5rem 0.35rem;
+        font-size: 0.78rem;
+        text-align: center;
+        width: 100%;
+    }
+    .settings-grid {
+        grid-template-columns: 1fr;
+        gap: 0.85rem;
+    }
+    .view-box {
+        min-height: 280px;
+        height: 340px;
+        padding: 0.5rem;
+    }
+    .file-badge-container {
         flex-direction: column;
         align-items: stretch;
-        gap: 0.75rem;
     }
-    .action-bar-buttons {
-        flex-wrap: wrap;
+    .file-badge-info {
+        justify-content: center;
     }
-    .action-bar-buttons button {
-        flex: 1 1 auto;
+    .file-badge-name {
+        max-width: 180px;
+    }
+    .file-badge-btn {
+        width: 100%;
+        text-align: center;
+        justify-content: center;
+    }
+
+    /* Clean Mobile Bottom Sheet Action Bar */
+    .floating-action-bar {
+        position: sticky;
+        bottom: 0.75rem;
+        padding: 0.75rem 0.85rem;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.65rem;
+        border-radius: 10px;
+    }
+    .action-bar-info {
+        text-align: center;
+        flex: none;
+    }
+    .action-bar-title {
+        justify-content: center;
+        font-size: 0.95rem;
+    }
+    .action-bar-subtitle {
+        font-size: 0.75rem;
+    }
+    .action-bar-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+        width: 100%;
+    }
+    .action-btn {
+        justify-content: center;
+        padding: 0.55rem 0.5rem;
+        font-size: 0.8rem;
+        width: 100%;
+    }
+    .action-btn-main {
+        grid-column: 1 / -1;
+        font-size: 0.875rem;
+        padding: 0.65rem 0.75rem;
+        order: -1;
     }
 }
 </style>
@@ -645,7 +917,7 @@ async function runVectorize() {
         const svgEl = container.querySelector('svg');
         if (svgEl) {
             svgEl.style.maxWidth = '100%';
-            svgEl.style.maxHeight = '460px';
+            svgEl.style.maxHeight = '100%';
             svgEl.style.width = 'auto';
             svgEl.style.height = 'auto';
             svgEl.style.display = 'block';
@@ -725,7 +997,7 @@ function copySvgCode() {
     navigator.clipboard.writeText(currentSvgString).then(() => {
         const btn = document.getElementById('btn-copy-svg');
         const oldHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i> Copied!';
+        btn.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i> <span>Copied!</span>';
         setTimeout(() => { btn.innerHTML = oldHtml; }, 2000);
     }).catch(err => {
         alert("Failed to copy: " + err);
