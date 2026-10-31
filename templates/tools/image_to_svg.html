@@ -15,7 +15,7 @@
         </p>
         <p style="font-size:.9em;color:var(--muted)">
             <i class="bi bi-info-circle"></i>
-            Ideal for <strong>Full-Color Posters &amp; Illustrations</strong>, <strong>Logos</strong>, <strong>Digital Signatures</strong>, and <strong>Official Stamps</strong>.
+            Ideal for <strong>Full-Color Posters &amp; Illustrations</strong>, <strong>Geometric Layouts &amp; Templates</strong>, <strong>Logos</strong>, <strong>Digital Signatures</strong>, and <strong>Official Stamps</strong>.
         </p>
     </div>
 
@@ -51,22 +51,25 @@
                 Quick Presets (1-Click):
             </label>
             <div class="preset-list">
-                <button type="button" class="preset-btn active" id="preset-poster" onclick="applyPreset('poster')">
+                <button type="button" class="preset-btn active" id="preset-shapes" onclick="applyPreset('shapes')" title="Extract geometric shapes, banners, ribbons & graphic layout without text or small clutter">
+                    <i class="bi bi-shapes"></i> <span>Shapes &amp; Layout</span>
+                </button>
+                <button type="button" class="preset-btn" id="preset-poster" onclick="applyPreset('poster')" title="Full fidelity poster and detailed illustration">
                     <i class="bi bi-image-fill"></i> <span>Poster &amp; Detailed Design</span>
                 </button>
-                <button type="button" class="preset-btn" id="preset-logo" onclick="applyPreset('logo')">
+                <button type="button" class="preset-btn" id="preset-logo" onclick="applyPreset('logo')" title="Flat color logo or icon">
                     <i class="bi bi-palette-fill"></i> <span>Color Logo</span>
                 </button>
-                <button type="button" class="preset-btn" id="preset-sig" onclick="applyPreset('sig')">
+                <button type="button" class="preset-btn" id="preset-sig" onclick="applyPreset('sig')" title="Signature line extraction">
                     <i class="bi bi-pen-fill"></i> <span>Signature</span>
                 </button>
-                <button type="button" class="preset-btn" id="preset-stamp" onclick="applyPreset('stamp')">
+                <button type="button" class="preset-btn" id="preset-stamp" onclick="applyPreset('stamp')" title="Official school/organization stamp">
                     <i class="bi bi-award-fill"></i> <span>Official Stamp</span>
                 </button>
-                <button type="button" class="preset-btn" id="preset-diagram" onclick="applyPreset('diagram')">
+                <button type="button" class="preset-btn" id="preset-diagram" onclick="applyPreset('diagram')" title="Line art and geometric diagrams">
                     <i class="bi bi-diagram-3-fill"></i> <span>Diagram / Line Art</span>
                 </button>
-                <button type="button" class="preset-btn" id="preset-custom" onclick="applyPreset('custom')">
+                <button type="button" class="preset-btn" id="preset-custom" onclick="applyPreset('custom')" title="Manual parameter control">
                     <i class="bi bi-sliders"></i> <span>Custom</span>
                 </button>
             </div>
@@ -106,7 +109,7 @@
                 <div id="grp-hierarchical">
                     <label class="control-label">Layering Mode</label>
                     <select id="ctrl-hierarchical" class="form-select form-select-sm" onchange="scheduleUpdate()">
-                        <option value="stacked" selected>Stacked (Gradient Layers - Recommended for Posters)</option>
+                        <option value="stacked" selected>Stacked (Gradient Layers - Recommended for Posters &amp; Shapes)</option>
                         <option value="cutout">Cutout (Flat Mosaic - Recommended for Logos)</option>
                     </select>
                 </div>
@@ -115,10 +118,10 @@
                 <div id="grp-color-precision">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem">
                         <label class="control-label" style="margin-bottom:0">Color Precision (Gradients):</label>
-                        <span id="val-color-precision" style="font-weight:700;color:var(--primary);font-size:.85rem">8 (Maximum / Photos)</span>
+                        <span id="val-color-precision" style="font-weight:700;color:var(--primary);font-size:.85rem">6 (Shapes &amp; Layout)</span>
                     </div>
-                    <input type="range" id="ctrl-color-precision" class="form-range" min="3" max="8" step="1" value="8" oninput="updateColorPrecisionLabel(this.value); scheduleUpdate()">
-                    <small style="color:var(--muted);font-size:.75rem">Fidelity of color transitions and details</small>
+                    <input type="range" id="ctrl-color-precision" class="form-range" min="3" max="8" step="1" value="6" oninput="updateColorPrecisionLabel(this.value); scheduleUpdate()">
+                    <small style="color:var(--muted);font-size:.75rem">Higher = richer color shades; Lower = cleaner flat color planes</small>
                 </div>
 
                 <!-- Ink Color (Only BW Mode) -->
@@ -146,14 +149,14 @@
                     <small style="color:var(--muted);font-size:.75rem">0 = Automatic contrast detection</small>
                 </div>
 
-                <!-- Filter Speckles -->
+                <!-- Filter Speckles / Detail Filter -->
                 <div>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem">
-                        <label class="control-label" style="margin-bottom:0">Speckle / Noise Filter:</label>
-                        <span id="val-speckle" style="font-weight:700;color:var(--primary);font-size:.85rem">1 px</span>
+                        <label class="control-label" style="margin-bottom:0">Shape Detail / Clutter Filter:</label>
+                        <span id="val-speckle" style="font-weight:700;color:var(--primary);font-size:.85rem">60 px (Shapes &amp; Layout)</span>
                     </div>
-                    <input type="range" id="ctrl-speckle" class="form-range" min="0" max="30" step="1" value="1" oninput="document.getElementById('val-speckle').textContent=this.value + ' px'; scheduleUpdate()">
-                    <small style="color:var(--muted);font-size:.75rem">Discard tiny dust spots or scan noise</small>
+                    <input type="range" id="ctrl-speckle" class="form-range" min="0" max="150" step="1" value="60" oninput="updateSpeckleLabel(this.value); scheduleUpdate()">
+                    <small id="sub-speckle" style="color:var(--muted);font-size:.75rem">Filters out small text, formulas, and fine noise</small>
                 </div>
 
                 <!-- Checkboxes -->
@@ -161,7 +164,7 @@
                     <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" id="ctrl-trans-bg" onchange="scheduleUpdate()">
                         <label class="form-check-label" for="ctrl-trans-bg" style="font-weight:600;font-size:.85rem">Transparent Background</label>
-                        <small style="display:block;color:var(--muted);font-size:.75rem">Keep disabled for posters to preserve canvas</small>
+                        <small style="display:block;color:var(--muted);font-size:.75rem">Keep disabled for posters/templates to preserve solid canvas</small>
                     </div>
                     <div class="form-check form-switch" id="grp-invert" style="display:none">
                         <input class="form-check-input" type="checkbox" id="ctrl-invert" onchange="scheduleUpdate()">
@@ -173,17 +176,44 @@
 
         <!-- Visual Comparison Section -->
         <div class="comparison-grid" id="comparison-grid">
-            <!-- Left: Original Image -->
+            <!-- Left: Original Image + Interactive Text Eraser -->
             <div class="card preview-card">
                 <div class="preview-card-header">
                     <div class="preview-title">
                         <i class="bi bi-file-earmark-image"></i>
                         <span>Original Image (Raster)</span>
                     </div>
-                    <span id="lbl-orig-dim" class="badge-dim">0 &times; 0</span>
+                    <div style="display:flex;gap:0.35rem;align-items:center;flex-wrap:wrap">
+                        <button type="button" class="btn btn-outline btn-xs" id="btn-toggle-eraser" onclick="toggleEraserTool()" style="padding:0.2rem 0.55rem;font-size:0.78rem" title="Click & drag to erase text, dates, or unwanted details">
+                            <i class="bi bi-eraser-fill text-danger"></i> <span>Erase Text</span>
+                        </button>
+                        <button type="button" class="btn btn-outline btn-xs" id="btn-undo-erase" onclick="undoErase()" style="display:none;padding:0.2rem 0.45rem;font-size:0.78rem" title="Undo last erase">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline btn-xs" id="btn-reset-erase" onclick="resetErase()" style="display:none;padding:0.2rem 0.45rem;font-size:0.78rem" title="Reset all erasures">
+                            <i class="bi bi-arrow-repeat"></i>
+                        </button>
+                        <span id="lbl-orig-dim" class="badge-dim">0 &times; 0</span>
+                    </div>
                 </div>
-                <div class="view-box">
+
+                <!-- Eraser Options Toolbar -->
+                <div id="eraser-toolbar" style="display:none;margin-bottom:0.75rem;padding:0.45rem 0.75rem;background:rgba(var(--primary-rgb, 43, 87, 154), 0.08);border:1px dashed var(--primary);border-radius:6px;font-size:0.8rem;align-items:center;justify-content:space-between;gap:0.5rem;flex-wrap:wrap">
+                    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+                        <span style="font-weight:600;color:var(--text)"><i class="bi bi-cursor-fill text-primary"></i> Drag box over text to erase:</span>
+                        <div style="display:flex;align-items:center;gap:0.25rem">
+                            <span style="color:var(--muted);font-size:0.75rem">Fill:</span>
+                            <input type="color" id="eraser-fill-color" value="#ffffff" style="width:26px;height:24px;padding:1px;border-radius:4px;cursor:pointer" title="Custom color fill">
+                            <button type="button" class="btn btn-xs btn-outline" onclick="setEraserFill('#ffffff')" style="padding:0.15rem 0.4rem;font-size:0.72rem">White</button>
+                            <button type="button" class="btn btn-xs btn-outline" onclick="setEraserFill('transparent')" style="padding:0.15rem 0.4rem;font-size:0.72rem">Transparent</button>
+                        </div>
+                    </div>
+                    <span style="font-size:0.75rem;color:var(--muted)">Drag cursor over unwanted text/dates</span>
+                </div>
+
+                <div class="view-box" id="orig-view-box" style="position:relative">
                     <img id="preview-orig-img" src="" alt="Original">
+                    <canvas id="eraser-overlay-canvas" style="display:none;position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none;z-index:15"></canvas>
                 </div>
             </div>
 
@@ -503,6 +533,8 @@
     max-height: 100%;
     object-fit: contain;
     display: block;
+    user-select: none;
+    -webkit-user-drag: none;
 }
 #svg-content {
     max-width: 100%;
@@ -717,8 +749,21 @@
 <script>
 const ENDPOINT = "{{ endpoint }}";
 let currentFile = null;
+let currentOriginalImage = null;
 let currentSvgString = "";
 let updateDebounceTimer = null;
+
+// Offscreen edit canvas for text erasing
+const masterEditCanvas = document.createElement('canvas');
+let originalSnapshot = null;
+const undoStack = [];
+
+// Eraser tool state
+let eraserActive = false;
+let isEraserDragging = false;
+let eraseStartX = 0;
+let eraseStartY = 0;
+let eraserFillColor = '#ffffff';
 
 // File Upload Handling
 const uploadZone = document.getElementById('img-upload-zone');
@@ -745,19 +790,29 @@ function handleFileChosen() {
         document.getElementById('file-info-badge').style.display = 'flex';
         uploadZone.style.display = 'none';
 
-        // Load original preview
+        // Load original image into master canvas
         const reader = new FileReader();
         reader.onload = (e) => {
             const origImg = document.getElementById('preview-orig-img');
             origImg.src = e.target.result;
             origImg.onload = () => {
                 document.getElementById('lbl-orig-dim').textContent = `${origImg.naturalWidth} × ${origImg.naturalHeight}`;
-                // Auto-select best preset based on dimensions
-                if (origImg.naturalWidth >= 1200 || origImg.naturalHeight >= 1200) {
-                    applyPreset('poster');
-                } else {
-                    applyPreset('logo');
-                }
+
+                // Initialize master canvas for in-memory editing
+                masterEditCanvas.width = origImg.naturalWidth;
+                masterEditCanvas.height = origImg.naturalHeight;
+                const ctx = masterEditCanvas.getContext('2d');
+                ctx.clearRect(0, 0, masterEditCanvas.width, masterEditCanvas.height);
+                ctx.drawImage(origImg, 0, 0);
+
+                // Save snapshot for reset
+                originalSnapshot = ctx.getImageData(0, 0, masterEditCanvas.width, masterEditCanvas.height);
+                undoStack.length = 0;
+                document.getElementById('btn-undo-erase').style.display = 'none';
+                document.getElementById('btn-reset-erase').style.display = 'none';
+
+                // Auto-select Shapes & Layout preset for template/poster images
+                applyPreset('shapes');
             };
             document.getElementById('vector-studio').style.display = 'block';
         };
@@ -768,6 +823,8 @@ function handleFileChosen() {
 function clearSelectedImage() {
     currentFile = null;
     fileInput.value = '';
+    undoStack.length = 0;
+    if (eraserActive) toggleEraserTool();
     document.getElementById('file-info-badge').style.display = 'none';
     uploadZone.style.display = 'block';
     document.getElementById('vector-studio').style.display = 'none';
@@ -775,10 +832,34 @@ function clearSelectedImage() {
 
 function updateColorPrecisionLabel(val) {
     const lbl = document.getElementById('val-color-precision');
+    val = parseInt(val);
     if (val >= 8) lbl.textContent = `${val} (Maximum / Photos)`;
     else if (val >= 7) lbl.textContent = `${val} (High / Posters)`;
+    else if (val >= 6) lbl.textContent = `${val} (Shapes & Layout)`;
     else if (val >= 5) lbl.textContent = `${val} (Medium)`;
     else lbl.textContent = `${val} (Minimal)`;
+}
+
+function updateSpeckleLabel(val) {
+    const lbl = document.getElementById('val-speckle');
+    const sub = document.getElementById('sub-speckle');
+    val = parseInt(val);
+    if (val <= 4) {
+        lbl.textContent = `${val} px (Fine details)`;
+        sub.textContent = 'Preserves all fine text characters and micro details';
+    } else if (val <= 20) {
+        lbl.textContent = `${val} px (Medium details)`;
+        sub.textContent = 'Good for logos, illustrations, and medium graphics';
+    } else if (val <= 55) {
+        lbl.textContent = `${val} px (Shapes & Layout)`;
+        sub.textContent = 'Filters out small body text, formulas, and fine noise';
+    } else if (val <= 85) {
+        lbl.textContent = `${val} px (Shapes & Layout - Clean)`;
+        sub.textContent = 'Strips text and extracts clean geometric shapes & banners';
+    } else {
+        lbl.textContent = `${val} px (Major Shapes Only)`;
+        sub.textContent = 'Extracts only large geometric blocks, ribbons & banners';
+    }
 }
 
 // Preset Logic
@@ -787,16 +868,26 @@ function applyPreset(preset) {
     const btn = document.getElementById(`preset-${preset}`);
     if (btn) btn.classList.add('active');
 
-    if (preset === 'poster') {
-        // Poster & Detailed Design
+    if (preset === 'shapes') {
+        // Shapes & Layout: Strips small text, extracts clean geometric blocks & banners
+        document.getElementById('ctrl-mode').value = 'color';
+        document.getElementById('ctrl-curve-mode').value = 'spline';
+        document.getElementById('ctrl-hierarchical').value = 'stacked';
+        document.getElementById('ctrl-color-precision').value = 6;
+        updateColorPrecisionLabel(6);
+        document.getElementById('ctrl-speckle').value = 60;
+        updateSpeckleLabel(60);
+        document.getElementById('ctrl-trans-bg').checked = false; // Solid canvas
+    } else if (preset === 'poster') {
+        // Poster & Detailed Design: Maximum fidelity
         document.getElementById('ctrl-mode').value = 'color';
         document.getElementById('ctrl-curve-mode').value = 'spline';
         document.getElementById('ctrl-hierarchical').value = 'stacked';
         document.getElementById('ctrl-color-precision').value = 8;
         updateColorPrecisionLabel(8);
         document.getElementById('ctrl-speckle').value = 1;
-        document.getElementById('val-speckle').textContent = '1 px';
-        document.getElementById('ctrl-trans-bg').checked = false; // Preserve background
+        updateSpeckleLabel(1);
+        document.getElementById('ctrl-trans-bg').checked = false;
     } else if (preset === 'logo') {
         // Color Logo (Flat / Cutout)
         document.getElementById('ctrl-mode').value = 'color';
@@ -804,9 +895,9 @@ function applyPreset(preset) {
         document.getElementById('ctrl-hierarchical').value = 'cutout';
         document.getElementById('ctrl-color-precision').value = 6;
         updateColorPrecisionLabel(6);
-        document.getElementById('ctrl-speckle').value = 8;
-        document.getElementById('val-speckle').textContent = '8 px';
-        document.getElementById('ctrl-trans-bg').checked = true; // Transparent background
+        document.getElementById('ctrl-speckle').value = 15;
+        updateSpeckleLabel(15);
+        document.getElementById('ctrl-trans-bg').checked = true;
     } else if (preset === 'sig') {
         // Digital Signature
         document.getElementById('ctrl-mode').value = 'bw';
@@ -814,7 +905,7 @@ function applyPreset(preset) {
         document.getElementById('ctrl-threshold').value = 135;
         document.getElementById('val-threshold').textContent = '135';
         document.getElementById('ctrl-speckle').value = 6;
-        document.getElementById('val-speckle').textContent = '6 px';
+        updateSpeckleLabel(6);
         document.getElementById('ctrl-fill-color').value = '#000000';
         document.getElementById('ctrl-trans-bg').checked = true;
         document.getElementById('ctrl-invert').checked = false;
@@ -825,7 +916,7 @@ function applyPreset(preset) {
         document.getElementById('ctrl-threshold').value = 145;
         document.getElementById('val-threshold').textContent = '145';
         document.getElementById('ctrl-speckle').value = 8;
-        document.getElementById('val-speckle').textContent = '8 px';
+        updateSpeckleLabel(8);
         document.getElementById('ctrl-fill-color').value = '#1e3a8a'; // Stamp Blue
         document.getElementById('ctrl-trans-bg').checked = true;
         document.getElementById('ctrl-invert').checked = false;
@@ -835,8 +926,8 @@ function applyPreset(preset) {
         document.getElementById('ctrl-curve-mode').value = 'spline';
         document.getElementById('ctrl-threshold').value = 128;
         document.getElementById('val-threshold').textContent = '128';
-        document.getElementById('ctrl-speckle').value = 2;
-        document.getElementById('val-speckle').textContent = '2 px';
+        document.getElementById('ctrl-speckle').value = 4;
+        updateSpeckleLabel(4);
         document.getElementById('ctrl-fill-color').value = '#000000';
         document.getElementById('ctrl-trans-bg').checked = true;
     }
@@ -865,7 +956,197 @@ function scheduleUpdate() {
     updateDebounceTimer = setTimeout(runVectorize, 350);
 }
 
+// -------------------------------------------------------------
+// Interactive Text / Clutter Eraser Tool
+// -------------------------------------------------------------
+const overlayCanvas = document.getElementById('eraser-overlay-canvas');
+const overlayCtx = overlayCanvas.getContext('2d');
+
+function toggleEraserTool() {
+    eraserActive = !eraserActive;
+    const btn = document.getElementById('btn-toggle-eraser');
+    const toolbar = document.getElementById('eraser-toolbar');
+
+    if (eraserActive) {
+        btn.classList.add('active');
+        btn.innerHTML = '<i class="bi bi-check-lg text-success"></i> <span>Done Erasing</span>';
+        toolbar.style.display = 'flex';
+        overlayCanvas.style.display = 'block';
+        resizeOverlayCanvas();
+    } else {
+        btn.classList.remove('active');
+        btn.innerHTML = '<i class="bi bi-eraser-fill text-danger"></i> <span>Erase Text</span>';
+        toolbar.style.display = 'none';
+        overlayCanvas.style.display = 'none';
+        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    }
+}
+
+function resizeOverlayCanvas() {
+    const viewBox = document.getElementById('orig-view-box');
+    overlayCanvas.width = viewBox.clientWidth;
+    overlayCanvas.height = viewBox.clientHeight;
+}
+
+window.addEventListener('resize', () => {
+    if (eraserActive) resizeOverlayCanvas();
+});
+
+function setEraserFill(color) {
+    eraserFillColor = color;
+    if (color !== 'transparent') {
+        document.getElementById('eraser-fill-color').value = color;
+    }
+}
+
+document.getElementById('eraser-fill-color').addEventListener('input', (e) => {
+    eraserFillColor = e.target.value;
+});
+
+// Helper: Calculate displayed image position inside object-fit: contain view box
+function getImageDisplayMetrics() {
+    const img = document.getElementById('preview-orig-img');
+    const viewBox = document.getElementById('orig-view-box');
+    const imgRatio = img.naturalWidth / img.naturalHeight;
+    const boxRatio = viewBox.clientWidth / viewBox.clientHeight;
+
+    let dispW, dispH, dispX, dispY;
+    if (imgRatio > boxRatio) {
+        dispW = viewBox.clientWidth;
+        dispH = viewBox.clientWidth / imgRatio;
+        dispX = 0;
+        dispY = (viewBox.clientHeight - dispH) / 2;
+    } else {
+        dispH = viewBox.clientHeight;
+        dispW = viewBox.clientHeight * imgRatio;
+        dispY = 0;
+        dispX = (viewBox.clientWidth - dispW) / 2;
+    }
+
+    const scale = img.naturalWidth / dispW;
+    return { dispX, dispY, dispW, dispH, scale };
+}
+
+overlayCanvas.addEventListener('pointerdown', (e) => {
+    if (!eraserActive) return;
+    overlayCanvas.setPointerCapture(e.pointerId);
+    isEraserDragging = true;
+    const rect = overlayCanvas.getBoundingClientRect();
+    eraseStartX = e.clientX - rect.left;
+    eraseStartY = e.clientY - rect.top;
+});
+
+overlayCanvas.addEventListener('pointermove', (e) => {
+    if (!eraserActive || !isEraserDragging) return;
+    const rect = overlayCanvas.getBoundingClientRect();
+    const curX = e.clientX - rect.left;
+    const curY = e.clientY - rect.top;
+
+    const x = Math.min(eraseStartX, curX);
+    const y = Math.min(eraseStartY, curY);
+    const w = Math.abs(curX - eraseStartX);
+    const h = Math.abs(curY - eraseStartY);
+
+    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    overlayCtx.fillStyle = 'rgba(239, 68, 68, 0.22)';
+    overlayCtx.strokeStyle = 'rgba(239, 68, 68, 0.9)';
+    overlayCtx.lineWidth = 2;
+    overlayCtx.setLineDash([4, 4]);
+    overlayCtx.fillRect(x, y, w, h);
+    overlayCtx.strokeRect(x, y, w, h);
+});
+
+overlayCanvas.addEventListener('pointerup', (e) => {
+    if (!eraserActive || !isEraserDragging) return;
+    isEraserDragging = false;
+    overlayCanvas.releasePointerCapture(e.pointerId);
+
+    const rect = overlayCanvas.getBoundingClientRect();
+    const curX = e.clientX - rect.left;
+    const curY = e.clientY - rect.top;
+
+    const selX = Math.min(eraseStartX, curX);
+    const selY = Math.min(eraseStartY, curY);
+    const selW = Math.abs(curX - eraseStartX);
+    const selH = Math.abs(curY - eraseStartY);
+
+    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+    // Ignore accidental clicks without drag (minimum 5x5 px)
+    if (selW < 5 || selH < 5) return;
+
+    // Map screen selection to natural image dimensions
+    const metrics = getImageDisplayMetrics();
+    const natX = Math.max(0, Math.round((selX - metrics.dispX) * metrics.scale));
+    const natY = Math.max(0, Math.round((selY - metrics.dispY) * metrics.scale));
+    const natW = Math.min(masterEditCanvas.width - natX, Math.round(selW * metrics.scale));
+    const natH = Math.min(masterEditCanvas.height - natY, Math.round(selH * metrics.scale));
+
+    if (natW <= 0 || natH <= 0) return;
+
+    // Push previous state to undo stack
+    const masterCtx = masterEditCanvas.getContext('2d');
+    undoStack.push(masterCtx.getImageData(0, 0, masterEditCanvas.width, masterEditCanvas.height));
+    if (undoStack.length > 10) undoStack.shift();
+
+    document.getElementById('btn-undo-erase').style.display = 'inline-flex';
+    document.getElementById('btn-reset-erase').style.display = 'inline-flex';
+
+    // Perform erasure
+    if (eraserFillColor === 'transparent') {
+        masterCtx.clearRect(natX, natY, natW, natH);
+    } else {
+        masterCtx.fillStyle = eraserFillColor;
+        masterCtx.fillRect(natX, natY, natW, natH);
+    }
+
+    // Export updated canvas as Blob and update preview image + currentFile
+    masterEditCanvas.toBlob((blob) => {
+        if (!blob) return;
+        currentFile = new File([blob], currentFile ? currentFile.name : "edited.png", { type: "image/png" });
+        const img = document.getElementById('preview-orig-img');
+        img.src = masterEditCanvas.toDataURL('image/png');
+        scheduleUpdate();
+    }, 'image/png');
+});
+
+function undoErase() {
+    if (undoStack.length === 0) return;
+    const lastState = undoStack.pop();
+    const masterCtx = masterEditCanvas.getContext('2d');
+    masterCtx.putImageData(lastState, 0, 0);
+
+    if (undoStack.length === 0) {
+        document.getElementById('btn-undo-erase').style.display = 'none';
+    }
+
+    masterEditCanvas.toBlob((blob) => {
+        if (!blob) return;
+        currentFile = new File([blob], currentFile ? currentFile.name : "edited.png", { type: "image/png" });
+        document.getElementById('preview-orig-img').src = masterEditCanvas.toDataURL('image/png');
+        scheduleUpdate();
+    }, 'image/png');
+}
+
+function resetErase() {
+    if (!originalSnapshot) return;
+    const masterCtx = masterEditCanvas.getContext('2d');
+    masterCtx.putImageData(originalSnapshot, 0, 0);
+    undoStack.length = 0;
+    document.getElementById('btn-undo-erase').style.display = 'none';
+    document.getElementById('btn-reset-erase').style.display = 'none';
+
+    masterEditCanvas.toBlob((blob) => {
+        if (!blob) return;
+        currentFile = new File([blob], currentFile ? currentFile.name : "original.png", { type: "image/png" });
+        document.getElementById('preview-orig-img').src = masterEditCanvas.toDataURL('image/png');
+        scheduleUpdate();
+    }, 'image/png');
+}
+
+// -------------------------------------------------------------
 // Vectorization Execution (Live Preview)
+// -------------------------------------------------------------
 async function runVectorize() {
     if (!currentFile) return;
 

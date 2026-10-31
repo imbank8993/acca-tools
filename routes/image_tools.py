@@ -1283,7 +1283,7 @@ def _vectorize_image_to_svg(
             c_mode = curve_mode if curve_mode in ("spline", "polygon", "none") else "spline"
             c_prec = max(2, min(8, int(color_precision)))
             l_diff = max(4, min(48, int(layer_difference)))
-            f_speck = max(0, min(100, int(filter_speckle)))
+            f_speck = max(0, min(500, int(filter_speckle)))
             c_thresh = max(10, min(120, int(corner_threshold)))
 
             svg = vtracer.convert_raw_image_to_svg(
@@ -1356,7 +1356,7 @@ def _vectorize_image_to_svg(
             png_bytes = buf.getvalue()
 
             c_mode = curve_mode if curve_mode in ("spline", "polygon", "none") else "spline"
-            f_speck = max(0, min(100, int(filter_speckle)))
+            f_speck = max(0, min(500, int(filter_speckle)))
 
             svg = vtracer.convert_raw_image_to_svg(
                 png_bytes,
