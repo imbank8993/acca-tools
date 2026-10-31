@@ -10,12 +10,12 @@
 
     <div class="tool-notes">
         <p>
-            <strong>Mesin Vektorisasi Presisi Tinggi (B&eacute;zier Spline Vectorizer):</strong> Mengonversi piksel gambar raster (PNG, JPG, WebP) menjadi kurva vektor B&eacute;zier (<code>&lt;path d="M... C..."&gt;</code>) yang mulus, rapi, dan tanpa gerigi tajam.
-            Hasil vektor SVG memiliki <strong>resolusi tak hingga</strong> sehingga dapat dicetak ukuran baliho atau diperbesar tanpa pecah.
+            <strong>Mesin Vektorisasi B&eacute;zier Spline:</strong> Mengonversi gambar piksel raster (PNG, JPG, WebP) menjadi kurva vektor B&eacute;zier sejati (<code>&lt;path d="M... C..."&gt;</code>) yang mulus, rapi, dan bebas gerigi patah-patah.
+            Hasil vektor SVG memiliki <strong>resolusi tak hingga</strong> sehingga dapat diperbesar sebesar apa pun tanpa pecah.
         </p>
         <p style="font-size:.9em;color:var(--muted)">
             <i class="bi bi-info-circle"></i>
-            Mendukung <strong>Poster &amp; Ilustrasi Berwarna Penuh</strong>, <strong>Logo Instansi</strong>, <strong>Tanda Tangan Digital</strong>, dan <strong>Cap Stempel Resmi</strong>.
+            Sangat cocok untuk <strong>Poster &amp; Ilustrasi Berwarna</strong>, <strong>Logo</strong>, <strong>Tanda Tangan Digital</strong>, dan <strong>Cap Stempel Resmi</strong>.
         </p>
     </div>
 
@@ -27,7 +27,7 @@
                 <i class="bi bi-vector-pen" style="font-size:2.5rem;color:var(--primary)"></i>
                 <p style="margin:.5rem 0 .25rem 0;font-weight:600">Seret &amp; lepas gambar di sini</p>
                 <span>atau klik untuk memilih file</span>
-                <small style="color:var(--muted);display:block;margin-top:.4rem">Format didukung: PNG, JPG, JPEG, WebP, BMP (Hingga 50 MB)</small>
+                <small style="color:var(--muted);display:block;margin-top:.4rem">Format didukung: PNG, JPG, JPEG, WebP, BMP</small>
             </div>
         </div>
 
@@ -77,12 +77,12 @@
                 <div>
                     <label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:.35rem">Mode Vektor</label>
                     <select id="ctrl-mode" class="form-select form-select-sm" onchange="onModeChange()">
-                        <option value="color" selected>Berwarna (Full Color B&eacute;zier Art)</option>
+                        <option value="color" selected>Berwarna (Full Color B&eacute;zier)</option>
                         <option value="bw">Monokrom (1 Warna Tinta / Garis)</option>
                     </select>
                 </div>
 
-                <!-- Curve Fitting Mode (Color & BW) -->
+                <!-- Curve Fitting Mode -->
                 <div>
                     <label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:.35rem">Tipe Garis Vektor</label>
                     <select id="ctrl-curve-mode" class="form-select form-select-sm" onchange="scheduleUpdate()">
@@ -107,7 +107,7 @@
                         <span id="val-color-precision" style="font-weight:700;color:var(--primary);font-size:.85rem">7 (Tinggi)</span>
                     </div>
                     <input type="range" id="ctrl-color-precision" class="form-range" min="3" max="8" step="1" value="7" oninput="updateColorPrecisionLabel(this.value); scheduleUpdate()">
-                    <small style="color:var(--muted);font-size:.75rem">Tingkat akurasi pemisahan warna detail</small>
+                    <small style="color:var(--muted);font-size:.75rem">Tingkat akurasi pemisahan gradasi warna</small>
                 </div>
 
                 <!-- Ink Color (Only BW Mode) -->
@@ -142,7 +142,7 @@
                         <span id="val-speckle" style="font-weight:700;color:var(--primary);font-size:.85rem">4 px</span>
                     </div>
                     <input type="range" id="ctrl-speckle" class="form-range" min="0" max="30" step="1" value="4" oninput="document.getElementById('val-speckle').textContent=this.value + ' px'; scheduleUpdate()">
-                    <small style="color:var(--muted);font-size:.75rem">Abaikan bercak debu / noise halus</small>
+                    <small style="color:var(--muted);font-size:.75rem">Abaikan bercak debu atau noise scan</small>
                 </div>
 
                 <!-- Checkboxes -->
@@ -169,53 +169,57 @@
         <!-- Visual Comparison Section -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem" id="comparison-grid">
             <!-- Left: Original Image -->
-            <div class="card" style="padding:1rem">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-                    <strong style="font-size:.9rem;color:var(--text)"><i class="bi bi-file-earmark-image"></i> Gambar Asli (Raster)</strong>
-                    <span id="lbl-orig-dim" class="badge" style="background:var(--bg);border:1px solid var(--border);color:var(--muted)">0 x 0</span>
+            <div class="card preview-card">
+                <div class="preview-card-header">
+                    <div class="preview-title">
+                        <i class="bi bi-file-earmark-image"></i> Gambar Asli (Raster)
+                    </div>
+                    <span id="lbl-orig-dim" class="badge-dim">0 &times; 0</span>
                 </div>
                 <div class="view-box">
-                    <img id="preview-orig-img" src="" alt="Original" style="max-width:100%;max-height:360px;object-fit:contain">
+                    <img id="preview-orig-img" src="" alt="Original" style="max-width:100%;max-height:480px;object-fit:contain">
                 </div>
             </div>
 
             <!-- Right: Vector SVG -->
-            <div class="card" style="padding:1rem">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-                    <div style="display:flex;align-items:center;gap:.5rem">
-                        <strong style="font-size:.9rem;color:var(--primary)"><i class="bi bi-vector-pen"></i> Hasil Vektor SVG</strong>
-                        <span id="lbl-engine" class="badge bg-primary" style="font-size:.7rem"><i class="bi bi-cpu-fill"></i> B&eacute;zier Spline Engine</span>
+            <div class="card preview-card">
+                <div class="preview-card-header">
+                    <div class="preview-title text-primary">
+                        <i class="bi bi-vector-pen"></i> Hasil Vektor SVG
+                        <span id="lbl-engine" class="badge-engine"><i class="bi bi-cpu-fill"></i> B&eacute;zier Spline</span>
                     </div>
-                    <div style="display:flex;gap:.35rem;align-items:center">
-                        <span id="lbl-svg-size" class="badge bg-success" style="font-size:.75rem">0 KB</span>
-                        <span id="lbl-svg-dim" class="badge" style="background:var(--bg);border:1px solid var(--border);color:var(--muted)">0 x 0</span>
+                    <div class="preview-meta">
+                        <span id="lbl-svg-size" class="badge-size">0 KB</span>
+                        <span id="lbl-svg-dim" class="badge-dim">0 &times; 0</span>
                     </div>
                 </div>
                 <div class="view-box checkerboard" id="svg-render-container" style="position:relative">
-                    <div id="svg-loading-overlay" style="display:none;position:absolute;inset:0;background:rgba(255,255,255,0.75);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;backdrop-filter:blur(2px)">
-                        <div class="spinner-border text-primary" role="status" style="width:2.2rem;height:2.2rem"></div>
-                        <span style="font-size:.85rem;font-weight:600;margin-top:.5rem;color:var(--text)">Menghitung kurva B&eacute;zier spline...</span>
+                    <div id="svg-loading-overlay" class="loading-overlay">
+                        <div class="spinner-border text-primary" role="status" style="width:2.2rem;height:2.2rem;border-width:0.22em"></div>
+                        <span style="font-size:.85rem;font-weight:600;margin-top:.6rem;color:var(--text)">Menghitung kurva B&eacute;zier spline...</span>
                     </div>
-                    <div id="svg-content" style="max-width:100%;max-height:360px;overflow:hidden;display:flex;align-items:center;justify-content:center"></div>
+                    <div id="svg-content" style="max-width:100%;max-height:480px;width:100%;height:100%;overflow:hidden;display:flex;align-items:center;justify-content:center"></div>
                 </div>
             </div>
         </div>
 
         <!-- Floating Download Bar -->
-        <div style="position:sticky;bottom:1.5rem;background:var(--surface);border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,0.15);border-radius:12px;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;z-index:90">
-            <div>
-                <strong style="font-size:1rem;color:var(--text)">File Vektor SVG Siap Digunakan</strong>
-                <span id="bar-svg-info" style="color:var(--muted);font-size:.85rem;margin-left:.5rem">Resolusi B&eacute;zier Tak Terbatas</span>
+        <div class="floating-action-bar">
+            <div class="action-bar-info">
+                <strong style="font-size:1rem;color:var(--text);display:flex;align-items:center;gap:.4rem">
+                    <i class="bi bi-check-circle-fill text-success"></i> Vektor SVG Siap Digunakan
+                </strong>
+                <span id="bar-svg-info" style="color:var(--muted);font-size:.8rem">Kurva B&eacute;zier matematis &bull; Skalabilitas tak hingga</span>
             </div>
-            <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
-                <button type="button" class="btn btn-outline" id="btn-copy-svg" onclick="copySvgCode()">
-                    <i class="bi bi-clipboard"></i> Salin Kode SVG
+            <div class="action-bar-buttons">
+                <button type="button" class="btn btn-outline btn-sm" id="btn-copy-svg" onclick="copySvgCode()">
+                    <i class="bi bi-clipboard"></i> Salin Kode
                 </button>
-                <button type="button" class="btn btn-outline" onclick="downloadMasterSvg('optimal')" title="Unduh ukuran optimal untuk website">
-                    <i class="bi bi-download"></i> Unduh SVG (Optimal / Web)
+                <button type="button" class="btn btn-outline btn-sm" onclick="downloadMasterSvg('optimal')" title="Ukuran optimal dan ringan untuk website">
+                    <i class="bi bi-download"></i> Unduh SVG (Web)
                 </button>
-                <button type="button" class="btn btn-primary" id="btn-download-svg" onclick="downloadMasterSvg('full')" style="padding:.6rem 1.5rem;font-weight:700;font-size:1rem">
-                    <i class="bi bi-file-earmark-arrow-down-fill"></i> Unduh Master SVG (Resolusi Penuh)
+                <button type="button" class="btn btn-primary" id="btn-download-svg" onclick="downloadMasterSvg('full')">
+                    <i class="bi bi-file-earmark-arrow-down-fill"></i> Unduh Master SVG
                 </button>
             </div>
         </div>
@@ -257,16 +261,100 @@
 .color-swatch:hover {
     transform: scale(1.15);
 }
+
+.preview-card {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+}
+.preview-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+    min-height: 32px;
+}
+.preview-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    white-space: nowrap;
+}
+.preview-meta {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    white-space: nowrap;
+}
+.badge-engine {
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: rgba(var(--primary-rgb, 43, 87, 154), 0.12);
+    color: var(--primary);
+    border: 1px solid rgba(var(--primary-rgb, 43, 87, 154), 0.25);
+    border-radius: 4px;
+    padding: 0.2rem 0.45rem;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+.badge-size {
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: rgba(34, 197, 94, 0.15);
+    color: #15803d;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 4px;
+    padding: 0.2rem 0.5rem;
+    white-space: nowrap;
+}
+[data-theme="dark"] .badge-size {
+    color: #4ade80;
+    background: rgba(34, 197, 94, 0.2);
+}
+.badge-dim {
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--bg);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.2rem 0.5rem;
+    white-space: nowrap;
+}
+
 .view-box {
-    min-height: 280px;
+    min-height: 400px;
+    max-height: 520px;
+    height: 480px;
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: .75rem;
+    padding: 0.75rem;
     overflow: hidden;
+}
+.loading-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.85);
+    z-index: 20;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(3px);
+    border-radius: 7px;
+}
+[data-theme="dark"] .loading-overlay {
+    background: rgba(20, 24, 33, 0.85);
 }
 .checkerboard {
     background-image: linear-gradient(45deg, #e5e7eb 25%, transparent 25%), 
@@ -282,9 +370,52 @@
                       linear-gradient(45deg, transparent 75%, #1f2937 75%), 
                       linear-gradient(-45deg, transparent 75%, #1f2937 75%);
 }
-@media (max-width: 768px) {
+
+.floating-action-bar {
+    position: sticky;
+    bottom: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    border-radius: 12px;
+    padding: 0.85rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1.25rem;
+    z-index: 90;
+    backdrop-filter: blur(10px);
+}
+.action-bar-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+.action-bar-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    white-space: nowrap;
+    flex-wrap: nowrap;
+}
+
+@media (max-width: 900px) {
     #comparison-grid {
         grid-template-columns: 1fr !important;
+    }
+    .view-box {
+        height: 380px;
+    }
+    .floating-action-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+    .action-bar-buttons {
+        flex-wrap: wrap;
+    }
+    .action-bar-buttons button {
+        flex: 1 1 auto;
     }
 }
 </style>
@@ -326,8 +457,8 @@ function handleFileChosen() {
             const origImg = document.getElementById('preview-orig-img');
             origImg.src = e.target.result;
             origImg.onload = () => {
-                document.getElementById('lbl-orig-dim').textContent = `${origImg.naturalWidth} x ${origImg.naturalHeight}`;
-                // Auto-select best preset based on dimensions/characteristics
+                document.getElementById('lbl-orig-dim').textContent = `${origImg.naturalWidth} × ${origImg.naturalHeight}`;
+                // Auto-select best preset based on dimensions
                 if (origImg.naturalWidth >= 1200 || origImg.naturalHeight >= 1200) {
                     applyPreset('poster');
                 } else {
@@ -363,7 +494,7 @@ function applyPreset(preset) {
     if (btn) btn.classList.add('active');
 
     if (preset === 'poster') {
-        // Poster & Desain Rinci (Sangat Tajam & Akurat)
+        // Poster & Desain Rinci
         document.getElementById('ctrl-mode').value = 'color';
         document.getElementById('ctrl-curve-mode').value = 'spline';
         document.getElementById('ctrl-hierarchical').value = 'stacked';
@@ -371,7 +502,7 @@ function applyPreset(preset) {
         updateColorPrecisionLabel(7);
         document.getElementById('ctrl-speckle').value = 4;
         document.getElementById('val-speckle').textContent = '4 px';
-        document.getElementById('ctrl-trans-bg').checked = false; // Keep original background
+        document.getElementById('ctrl-trans-bg').checked = false; // Preserve background
     } else if (preset === 'logo') {
         // Logo Berwarna (Flat / Cutout)
         document.getElementById('ctrl-mode').value = 'color';
@@ -481,14 +612,16 @@ async function runVectorize() {
         const svgEl = container.querySelector('svg');
         if (svgEl) {
             svgEl.style.maxWidth = '100%';
-            svgEl.style.maxHeight = '340px';
+            svgEl.style.maxHeight = '460px';
+            svgEl.style.width = 'auto';
             svgEl.style.height = 'auto';
+            svgEl.style.display = 'block';
         }
 
-        document.getElementById('lbl-svg-dim').textContent = `${data.width} x ${data.height}`;
+        document.getElementById('lbl-svg-dim').textContent = `${data.width} × ${data.height}`;
         document.getElementById('lbl-svg-size').textContent = `${(data.svg_size / 1024).toFixed(1)} KB`;
         if (data.engine === 'vtracer') {
-            document.getElementById('lbl-engine').innerHTML = '<i class="bi bi-cpu-fill"></i> B&eacute;zier Spline Engine';
+            document.getElementById('lbl-engine').innerHTML = '<i class="bi bi-cpu-fill"></i> B&eacute;zier Spline';
         }
     } catch (err) {
         overlay.style.display = 'none';
