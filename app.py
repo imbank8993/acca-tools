@@ -106,6 +106,7 @@ TOOL_CATEGORIES = [
             {"id": "ocr", "name": "Image to Text", "desc": "Extract text from images (OCR)", "icon": "bi-card-text"},
             {"id": "animated", "name": "Animated WebP/GIF", "desc": "Convert between animated WebP and GIF", "icon": "bi-film"},
             {"id": "palette", "name": "Color Palette", "desc": "Extract a color palette from an image", "icon": "bi-palette2"},
+            {"id": "image-to-svg", "name": "Image to SVG", "desc": "Convert JPG/PNG to scalable vector SVG (Logos, Signatures, Stamps)", "icon": "bi-vector-pen"},
             {"id": "svg-to-png", "name": "SVG to PNG", "desc": "Rasterize SVG vector files to PNG", "icon": "bi-filetype-svg"},
             {"id": "svg-optimize", "name": "SVG Optimizer", "desc": "Strip metadata and shrink SVG files", "icon": "bi-file-minus-fill"},
             {"id": "heic-convert", "name": "HEIC Converter", "desc": "Convert iPhone .heic photos to JPG / PNG / WebP", "icon": "bi-phone-fill"},

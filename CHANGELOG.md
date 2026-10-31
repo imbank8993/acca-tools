@@ -45,8 +45,14 @@ All notable changes to **ACCA TOOLS** are documented here. The format is based o
   - Customizable naming formats (`{id}_{nama}.pdf`, `{no}_{id}_{nama}.pdf`, `{prefix}_{id}_{nama}.pdf`, etc.) with uppercase formatting option.
   - Exports a single downloadable ZIP containing losslessly sliced sub-PDFs and a formatted `_split_summary.txt` report.
 
-### Added — Image Tools
+### Added - Image Tools
 
+- **Image to SVG (Vektorisasi Gambar)** (/image/image-to-svg) - mengonversi gambar bitmap (PNG, JPG, WebP, BMP) menjadi grafik vektor SVG berbasis kurva matematis resolusi tak hingga:
+  - **Dua Mode Vektorisasi**:
+    - **Monokrom (Line Art, Tanda Tangan & Cap)**: Thresholding presisi (Otsu otomatis atau manual), pembersihan latar belakang transparan, dan pewarnaan tinta kustom (hitam, biru/ungu stempel, merah, hijau).
+    - **Berwarna (Color Posterization)**: K-Means color quantization (2-32 warna) dengan pengurutan lapisan kurva area terbesar dan penghapusan latar belakang putih otomatis.
+  - **4 Preset Cepat 1-Klik**: Tanda Tangan, Cap/Stempel Resmi, Logo Berwarna, dan Diagram/Line Art.
+  - **Studio Pratinjau Interaktif**: Perbandingan *side-by-side* gambar asli vs vektor SVG, kontrol kehalusan garis (*smoothness*), filter bintik/noise, serta tombol salin kode SVG dan download file .svg.
 - **Merge Images** — combine two or more images into one with a balanced grid by default, plus horizontal and vertical layouts. Images are scaled with aspect ratio preserved (justified rows) so they line up flush with no leftover background bands. The output size is bounded by a configurable max output width (plus hard safety caps) so merging large multi-megapixel photos stays fast instead of hanging on an oversized canvas. Configurable spacing, background/border color, and PNG/JPG/WebP output. Uses the universal upload template with a new reusable `color` form input type.
 
 ## [0.6.4] — 2026-06-07
