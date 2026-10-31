@@ -50,6 +50,13 @@ def client():
     return app.test_client()
 
 
+def test_certificate_generator_page(client):
+    res = client.get("/acca-plus/certificate-generator")
+    assert res.status_code == 200
+    assert b"Certificate Generator" in res.data
+    assert b"{{Nama}}" in res.data
+
+
 def test_parse_spreadsheet_rows():
     excel_bytes = make_sample_excel_data()
     headers, rows = plus._parse_spreadsheet_rows(excel_bytes, "peserta.xlsx")

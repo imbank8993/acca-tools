@@ -171,6 +171,7 @@
 
 {% block scripts %}
 <script>
+{% raw %}
 const certForm        = document.getElementById('cert-form');
 const templateInput   = document.getElementById('template-file');
 const dataInput       = document.getElementById('data-file');
@@ -456,5 +457,6 @@ function escHtml(str) {
     if (!str) return '';
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+{% endraw %}
 </script>
 {% endblock %}
