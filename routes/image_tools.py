@@ -573,8 +573,8 @@ def palette_page():
 def image_to_svg_page():
     return render_template(
         "tools/image_to_svg.html",
-        title="Image to SVG (Vektorisasi Gambar)",
-        description="Ubah gambar raster (PNG, JPG, WebP) menjadi grafik vektor SVG tajam dengan resolusi tak terbatas. Sempurna untuk logo, tanda tangan digital, cap/stempel resmi, dan ilustrasi.",
+        title="Image to SVG",
+        description="Convert raster images (PNG, JPG, WebP) into scalable vector graphics (SVG) with infinite resolution. Perfect for logos, posters, signatures, stamps, and illustrations.",
         endpoint="/image/image-to-svg",
     )
 
@@ -1477,16 +1477,16 @@ def _vectorize_image_to_svg(
 @bp.route("/image-to-svg", methods=["POST"])
 def image_to_svg():
     if not HAS_VTRACER and not HAS_CV2:
-        return jsonify(error="Modul vektorisasi (vtracer / OpenCV) tidak tersedia di server."), 500
+        return jsonify(error="Vectorization module (vtracer / OpenCV) is not installed on the server."), 500
 
     files = request.files.getlist("files") or request.files.getlist("file")
     if not files or not files[0].filename:
-        return jsonify(error="Harap pilih file gambar (PNG, JPG, WebP, BMP)."), 400
+        return jsonify(error="Please select an image file (PNG, JPG, WebP, BMP)."), 400
 
     file = files[0]
     img_bytes = file.read()
     if not img_bytes:
-        return jsonify(error="File gambar kosong."), 400
+        return jsonify(error="Image file is empty."), 400
 
     mode = request.form.get("mode", "color").lower()
     if mode not in ("bw", "color"):
@@ -1564,7 +1564,7 @@ def image_to_svg():
         )
     except Exception as e:
         log_error(e, "image_to_svg")
-        return jsonify(error=f"Gagal melakukan vektorisasi gambar: {e}"), 500
+        return jsonify(error=f"Failed to vectorize image: {e}"), 500
 
 
 @bp.route("/svg-to-png", methods=["POST"])

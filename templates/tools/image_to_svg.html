@@ -10,12 +10,12 @@
 
     <div class="tool-notes">
         <p>
-            <strong>Mesin Vektorisasi B&eacute;zier Spline:</strong> Mengonversi gambar piksel raster (PNG, JPG, WebP) menjadi kurva vektor B&eacute;zier sejati (<code>&lt;path d="M... C..."&gt;</code>) yang mulus, rapi, dan bebas gerigi patah-patah.
-            Hasil vektor SVG memiliki <strong>resolusi tak hingga</strong> sehingga dapat diperbesar sebesar apa pun tanpa pecah.
+            <strong>B&eacute;zier Spline Vectorizer:</strong> Converts raster pixel images (PNG, JPG, WebP) into true mathematical B&eacute;zier curves (<code>&lt;path d="M... C..."&gt;</code>) with infinite resolution.
+            SVG vectors can be enlarged or printed at billboard scale without pixelation or blur.
         </p>
         <p style="font-size:.9em;color:var(--muted)">
             <i class="bi bi-info-circle"></i>
-            Sangat cocok untuk <strong>Poster &amp; Ilustrasi Berwarna</strong>, <strong>Logo</strong>, <strong>Tanda Tangan Digital</strong>, dan <strong>Cap Stempel Resmi</strong>.
+            Ideal for <strong>Full-Color Posters &amp; Illustrations</strong>, <strong>Logos</strong>, <strong>Digital Signatures</strong>, and <strong>Official Stamps</strong>.
         </p>
     </div>
 
@@ -25,15 +25,15 @@
             <input type="file" id="img-file-input" accept="image/png,image/jpeg,image/webp,image/bmp" style="display:none">
             <div class="upload-prompt" id="img-upload-prompt">
                 <i class="bi bi-vector-pen" style="font-size:2.5rem;color:var(--primary)"></i>
-                <p style="margin:.5rem 0 .25rem 0;font-weight:600">Seret &amp; lepas gambar di sini</p>
-                <span>atau klik untuk memilih file</span>
-                <small style="color:var(--muted);display:block;margin-top:.4rem">Format didukung: PNG, JPG, JPEG, WebP, BMP</small>
+                <p style="margin:.5rem 0 .25rem 0;font-weight:600">Drag &amp; drop an image here</p>
+                <span>or click to browse files</span>
+                <small style="color:var(--muted);display:block;margin-top:.4rem">Supported formats: PNG, JPG, JPEG, WebP, BMP</small>
             </div>
         </div>
 
         <div id="file-info-badge" style="display:none;margin-top:.75rem;padding:.5rem .75rem;background:rgba(var(--primary-rgb, 43, 87, 154), 0.1);border-radius:6px;font-weight:500;align-items:center;justify-content:space-between">
             <span><i class="bi bi-file-earmark-image-fill text-success"></i> <strong id="selected-filename"></strong> <span id="selected-filesize" style="color:var(--muted);font-weight:normal"></span></span>
-            <button type="button" class="btn btn-sm btn-outline" onclick="clearSelectedImage()" style="padding:.2rem .5rem;font-size:.8rem"><i class="bi bi-x"></i> Ganti Gambar</button>
+            <button type="button" class="btn btn-sm btn-outline" onclick="clearSelectedImage()" style="padding:.2rem .5rem;font-size:.8rem"><i class="bi bi-x"></i> Change Image</button>
         </div>
     </div>
 
@@ -42,26 +42,26 @@
         <!-- Preset Bar -->
         <div class="card" style="margin-bottom:1.25rem;padding:1rem">
             <label style="font-weight:600;font-size:.85rem;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:.5rem">
-                Pilih Preset Cepat (1-Klik):
+                Quick Presets (1-Click):
             </label>
             <div style="display:flex;gap:.5rem;flex-wrap:wrap">
                 <button type="button" class="preset-btn active" id="preset-poster" onclick="applyPreset('poster')">
-                    <i class="bi bi-image-fill"></i> Poster &amp; Desain Rinci
+                    <i class="bi bi-image-fill"></i> Poster &amp; Detailed Design
                 </button>
                 <button type="button" class="preset-btn" id="preset-logo" onclick="applyPreset('logo')">
-                    <i class="bi bi-palette-fill"></i> Logo Berwarna
+                    <i class="bi bi-palette-fill"></i> Color Logo
                 </button>
                 <button type="button" class="preset-btn" id="preset-sig" onclick="applyPreset('sig')">
-                    <i class="bi bi-pen-fill"></i> Tanda Tangan
+                    <i class="bi bi-pen-fill"></i> Signature
                 </button>
                 <button type="button" class="preset-btn" id="preset-stamp" onclick="applyPreset('stamp')">
-                    <i class="bi bi-award-fill"></i> Cap / Stempel Resmi
+                    <i class="bi bi-award-fill"></i> Official Stamp
                 </button>
                 <button type="button" class="preset-btn" id="preset-diagram" onclick="applyPreset('diagram')">
-                    <i class="bi bi-diagram-3-fill"></i> Diagram / Sketsa Garis
+                    <i class="bi bi-diagram-3-fill"></i> Diagram / Line Art
                 </button>
                 <button type="button" class="preset-btn" id="preset-custom" onclick="applyPreset('custom')">
-                    <i class="bi bi-sliders"></i> Kustom
+                    <i class="bi bi-sliders"></i> Custom
                 </button>
             </div>
         </div>
@@ -69,58 +69,58 @@
         <!-- Controls Form -->
         <div class="card" style="margin-bottom:1.5rem;padding:1.25rem">
             <h3 style="font-size:1rem;margin:0 0 1rem 0;display:flex;align-items:center;gap:.5rem">
-                <i class="bi bi-sliders" style="color:var(--primary)"></i> Pengaturan Vektorisasi
+                <i class="bi bi-sliders" style="color:var(--primary)"></i> Vector Settings
             </h3>
 
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:1rem">
                 <!-- Mode Selector -->
                 <div>
-                    <label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:.35rem">Mode Vektor</label>
+                    <label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:.35rem">Vector Mode</label>
                     <select id="ctrl-mode" class="form-select form-select-sm" onchange="onModeChange()">
-                        <option value="color" selected>Berwarna (Full Color B&eacute;zier)</option>
-                        <option value="bw">Monokrom (1 Warna Tinta / Garis)</option>
+                        <option value="color" selected>Color (Full Color B&eacute;zier)</option>
+                        <option value="bw">Monochrome (Single Ink / Line Art)</option>
                     </select>
                 </div>
 
                 <!-- Curve Fitting Mode -->
                 <div>
-                    <label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:.35rem">Tipe Garis Vektor</label>
+                    <label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:.35rem">Curve Type</label>
                     <select id="ctrl-curve-mode" class="form-select form-select-sm" onchange="scheduleUpdate()">
-                        <option value="spline" selected>Spline (Kurva Lengkung Halus B&eacute;zier)</option>
-                        <option value="polygon">Polygon (Sudut Geometris Tajam)</option>
+                        <option value="spline" selected>Spline (Smooth B&eacute;zier Curves)</option>
+                        <option value="polygon">Polygon (Sharp Geometric Edges)</option>
                     </select>
                 </div>
 
                 <!-- Layering (Color Mode Only) -->
                 <div id="grp-hierarchical">
-                    <label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:.35rem">Metode Lapisan Warna</label>
+                    <label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:.35rem">Layering Mode</label>
                     <select id="ctrl-hierarchical" class="form-select form-select-sm" onchange="scheduleUpdate()">
-                        <option value="stacked" selected>Stacked (Gradasi Berlapis - Cocok untuk Poster)</option>
-                        <option value="cutout">Cutout (Mosaik Flat Art - Cocok untuk Logo)</option>
+                        <option value="stacked" selected>Stacked (Gradient Layers - Recommended for Posters)</option>
+                        <option value="cutout">Cutout (Flat Mosaic - Recommended for Logos)</option>
                     </select>
                 </div>
 
                 <!-- Color Precision (Color Mode Only) -->
                 <div id="grp-color-precision">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem">
-                        <label style="font-weight:600;font-size:.85rem">Presisi Warna (Gradasi):</label>
-                        <span id="val-color-precision" style="font-weight:700;color:var(--primary);font-size:.85rem">7 (Tinggi)</span>
+                        <label style="font-weight:600;font-size:.85rem">Color Precision (Gradients):</label>
+                        <span id="val-color-precision" style="font-weight:700;color:var(--primary);font-size:.85rem">8 (Maximum / Photos)</span>
                     </div>
-                    <input type="range" id="ctrl-color-precision" class="form-range" min="3" max="8" step="1" value="7" oninput="updateColorPrecisionLabel(this.value); scheduleUpdate()">
-                    <small style="color:var(--muted);font-size:.75rem">Tingkat akurasi pemisahan gradasi warna</small>
+                    <input type="range" id="ctrl-color-precision" class="form-range" min="3" max="8" step="1" value="8" oninput="updateColorPrecisionLabel(this.value); scheduleUpdate()">
+                    <small style="color:var(--muted);font-size:.75rem">Fidelity of color transitions and details</small>
                 </div>
 
                 <!-- Ink Color (Only BW Mode) -->
                 <div id="grp-fill-color" style="display:none">
-                    <label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:.35rem">Warna Tinta Vektor</label>
+                    <label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:.35rem">Vector Ink Color</label>
                     <div style="display:flex;align-items:center;gap:.5rem">
                         <input type="color" id="ctrl-fill-color" class="form-control form-control-color" value="#000000" style="width:40px;height:32px;padding:2px" onchange="scheduleUpdate()">
                         <div style="display:flex;gap:.25rem">
-                            <span class="color-swatch" style="background:#000000" title="Hitam" onclick="setColor('#000000')"></span>
-                            <span class="color-swatch" style="background:#1e3a8a" title="Biru Stempel" onclick="setColor('#1e3a8a')"></span>
-                            <span class="color-swatch" style="background:#b91c1c" title="Merah Stempel" onclick="setColor('#b91c1c')"></span>
-                            <span class="color-swatch" style="background:#15803d" title="Hijau" onclick="setColor('#15803d')"></span>
-                            <span class="color-swatch" style="background:#4338ca" title="Ungu Stempel" onclick="setColor('#4338ca')"></span>
+                            <span class="color-swatch" style="background:#000000" title="Black" onclick="setColor('#000000')"></span>
+                            <span class="color-swatch" style="background:#1e3a8a" title="Stamp Blue" onclick="setColor('#1e3a8a')"></span>
+                            <span class="color-swatch" style="background:#b91c1c" title="Stamp Red" onclick="setColor('#b91c1c')"></span>
+                            <span class="color-swatch" style="background:#15803d" title="Green" onclick="setColor('#15803d')"></span>
+                            <span class="color-swatch" style="background:#4338ca" title="Stamp Purple" onclick="setColor('#4338ca')"></span>
                         </div>
                     </div>
                 </div>
@@ -128,40 +128,40 @@
                 <!-- Threshold (BW Mode Only) -->
                 <div id="grp-threshold" style="display:none">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem">
-                        <label style="font-weight:600;font-size:.85rem">Ambang Batas / Threshold:</label>
+                        <label style="font-weight:600;font-size:.85rem">Contrast Threshold:</label>
                         <span id="val-threshold" style="font-weight:700;color:var(--primary);font-size:.85rem">128</span>
                     </div>
                     <input type="range" id="ctrl-threshold" class="form-range" min="0" max="255" step="1" value="128" oninput="document.getElementById('val-threshold').textContent=(this.value == 0 ? 'Auto (Otsu)' : this.value); scheduleUpdate()">
-                    <small style="color:var(--muted);font-size:.75rem">0 = Deteksi kontras otomatis</small>
+                    <small style="color:var(--muted);font-size:.75rem">0 = Automatic contrast detection</small>
                 </div>
 
                 <!-- Filter Speckles -->
                 <div>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem">
-                        <label style="font-weight:600;font-size:.85rem">Pembersih Bintik / Noise:</label>
-                        <span id="val-speckle" style="font-weight:700;color:var(--primary);font-size:.85rem">4 px</span>
+                        <label style="font-weight:600;font-size:.85rem">Speckle / Noise Filter:</label>
+                        <span id="val-speckle" style="font-weight:700;color:var(--primary);font-size:.85rem">1 px</span>
                     </div>
-                    <input type="range" id="ctrl-speckle" class="form-range" min="0" max="30" step="1" value="4" oninput="document.getElementById('val-speckle').textContent=this.value + ' px'; scheduleUpdate()">
-                    <small style="color:var(--muted);font-size:.75rem">Abaikan bercak debu atau noise scan</small>
+                    <input type="range" id="ctrl-speckle" class="form-range" min="0" max="30" step="1" value="1" oninput="document.getElementById('val-speckle').textContent=this.value + ' px'; scheduleUpdate()">
+                    <small style="color:var(--muted);font-size:.75rem">Discard tiny dust spots or scan noise</small>
                 </div>
 
                 <!-- Checkboxes -->
                 <div style="display:flex;flex-direction:column;justify-content:center;gap:.65rem">
                     <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" id="ctrl-trans-bg" onchange="scheduleUpdate()">
-                        <label class="form-check-label" for="ctrl-trans-bg" style="font-weight:600;font-size:.85rem">Latar Belakang Transparan</label>
-                        <small style="display:block;color:var(--muted);font-size:.75rem">Nonaktifkan untuk poster agar latar asli tidak bolong</small>
+                        <label class="form-check-label" for="ctrl-trans-bg" style="font-weight:600;font-size:.85rem">Transparent Background</label>
+                        <small style="display:block;color:var(--muted);font-size:.75rem">Keep disabled for posters to preserve solid canvas</small>
                     </div>
                     <div class="form-check form-switch" id="grp-invert" style="display:none">
                         <input class="form-check-input" type="checkbox" id="ctrl-invert" onchange="scheduleUpdate()">
-                        <label class="form-check-label" for="ctrl-invert" style="font-weight:500;font-size:.85rem">Invert / Balik Warna Tinta</label>
+                        <label class="form-check-label" for="ctrl-invert" style="font-weight:500;font-size:.85rem">Invert Ink Colors</label>
                     </div>
                 </div>
             </div>
 
             <div style="margin-top:1rem;display:flex;justify-content:flex-end;gap:.5rem">
                 <button type="button" class="btn btn-outline btn-sm" onclick="runVectorize()">
-                    <i class="bi bi-arrow-clockwise"></i> Perbarui Pratinjau
+                    <i class="bi bi-arrow-clockwise"></i> Refresh Preview
                 </button>
             </div>
         </div>
@@ -172,7 +172,7 @@
             <div class="card preview-card">
                 <div class="preview-card-header">
                     <div class="preview-title">
-                        <i class="bi bi-file-earmark-image"></i> Gambar Asli (Raster)
+                        <i class="bi bi-file-earmark-image"></i> Original Image (Raster)
                     </div>
                     <span id="lbl-orig-dim" class="badge-dim">0 &times; 0</span>
                 </div>
@@ -185,7 +185,7 @@
             <div class="card preview-card">
                 <div class="preview-card-header">
                     <div class="preview-title text-primary">
-                        <i class="bi bi-vector-pen"></i> Hasil Vektor SVG
+                        <i class="bi bi-vector-pen"></i> Vector SVG Result
                         <span id="lbl-engine" class="badge-engine"><i class="bi bi-cpu-fill"></i> B&eacute;zier Spline</span>
                     </div>
                     <div class="preview-meta">
@@ -193,10 +193,10 @@
                         <span id="lbl-svg-dim" class="badge-dim">0 &times; 0</span>
                     </div>
                 </div>
-                <div class="view-box checkerboard" id="svg-render-container" style="position:relative">
+                <div class="view-box" id="svg-render-container" style="position:relative;background:#ffffff">
                     <div id="svg-loading-overlay" class="loading-overlay">
                         <div class="spinner-border text-primary" role="status" style="width:2.2rem;height:2.2rem;border-width:0.22em"></div>
-                        <span style="font-size:.85rem;font-weight:600;margin-top:.6rem;color:var(--text)">Menghitung kurva B&eacute;zier spline...</span>
+                        <span style="font-size:.85rem;font-weight:600;margin-top:.6rem;color:var(--text)">Computing B&eacute;zier spline curves...</span>
                     </div>
                     <div id="svg-content" style="max-width:100%;max-height:480px;width:100%;height:100%;overflow:hidden;display:flex;align-items:center;justify-content:center"></div>
                 </div>
@@ -207,21 +207,21 @@
         <div class="floating-action-bar">
             <div class="action-bar-info">
                 <div class="action-bar-title">
-                    <i class="bi bi-check-circle-fill text-success"></i> Vektor SVG Siap Digunakan
+                    <i class="bi bi-check-circle-fill text-success"></i> Vector SVG Ready
                 </div>
                 <div class="action-bar-subtitle">
-                    Kurva B&eacute;zier matematis &bull; Skalabilitas tak hingga
+                    Mathematical B&eacute;zier curves &bull; Infinite scalability
                 </div>
             </div>
             <div class="action-bar-buttons">
                 <button type="button" class="btn btn-outline" id="btn-copy-svg" onclick="copySvgCode()">
-                    <i class="bi bi-clipboard"></i> Salin Kode
+                    <i class="bi bi-clipboard"></i> Copy SVG
                 </button>
-                <button type="button" class="btn btn-outline" onclick="downloadMasterSvg('optimal')" title="Ukuran optimal dan ringan untuk website">
-                    <i class="bi bi-download"></i> Unduh SVG (Web)
+                <button type="button" class="btn btn-outline" onclick="downloadMasterSvg('optimal')" title="Optimized compact vector for web">
+                    <i class="bi bi-download"></i> Download SVG (Web)
                 </button>
                 <button type="button" class="btn btn-primary" id="btn-download-svg" onclick="downloadMasterSvg('full')">
-                    <i class="bi bi-file-earmark-arrow-down-fill"></i> Unduh Master SVG
+                    <i class="bi bi-file-earmark-arrow-down-fill"></i> Download Master SVG
                 </button>
             </div>
         </div>
@@ -503,9 +503,9 @@ function clearSelectedImage() {
 
 function updateColorPrecisionLabel(val) {
     const lbl = document.getElementById('val-color-precision');
-    if (val >= 8) lbl.textContent = `${val} (Maksimal / Foto)`;
-    else if (val >= 7) lbl.textContent = `${val} (Tinggi / Poster)`;
-    else if (val >= 5) lbl.textContent = `${val} (Sedang)`;
+    if (val >= 8) lbl.textContent = `${val} (Maximum / Photos)`;
+    else if (val >= 7) lbl.textContent = `${val} (High / Posters)`;
+    else if (val >= 5) lbl.textContent = `${val} (Medium)`;
     else lbl.textContent = `${val} (Minimal)`;
 }
 
@@ -516,7 +516,7 @@ function applyPreset(preset) {
     if (btn) btn.classList.add('active');
 
     if (preset === 'poster') {
-        // Poster & Desain Rinci
+        // Poster & Detailed Design
         document.getElementById('ctrl-mode').value = 'color';
         document.getElementById('ctrl-curve-mode').value = 'spline';
         document.getElementById('ctrl-hierarchical').value = 'stacked';
@@ -526,7 +526,7 @@ function applyPreset(preset) {
         document.getElementById('val-speckle').textContent = '1 px';
         document.getElementById('ctrl-trans-bg').checked = false; // Preserve background
     } else if (preset === 'logo') {
-        // Logo Berwarna (Flat / Cutout)
+        // Color Logo (Flat / Cutout)
         document.getElementById('ctrl-mode').value = 'color';
         document.getElementById('ctrl-curve-mode').value = 'spline';
         document.getElementById('ctrl-hierarchical').value = 'cutout';
@@ -536,7 +536,7 @@ function applyPreset(preset) {
         document.getElementById('val-speckle').textContent = '8 px';
         document.getElementById('ctrl-trans-bg').checked = true; // Transparent background
     } else if (preset === 'sig') {
-        // Tanda Tangan
+        // Digital Signature
         document.getElementById('ctrl-mode').value = 'bw';
         document.getElementById('ctrl-curve-mode').value = 'spline';
         document.getElementById('ctrl-threshold').value = 135;
@@ -547,14 +547,14 @@ function applyPreset(preset) {
         document.getElementById('ctrl-trans-bg').checked = true;
         document.getElementById('ctrl-invert').checked = false;
     } else if (preset === 'stamp') {
-        // Cap Stempel Resmi
+        // Official Stamp
         document.getElementById('ctrl-mode').value = 'bw';
         document.getElementById('ctrl-curve-mode').value = 'spline';
         document.getElementById('ctrl-threshold').value = 145;
         document.getElementById('val-threshold').textContent = '145';
         document.getElementById('ctrl-speckle').value = 8;
         document.getElementById('val-speckle').textContent = '8 px';
-        document.getElementById('ctrl-fill-color').value = '#1e3a8a'; // Biru Stempel
+        document.getElementById('ctrl-fill-color').value = '#1e3a8a'; // Stamp Blue
         document.getElementById('ctrl-trans-bg').checked = true;
         document.getElementById('ctrl-invert').checked = false;
     } else if (preset === 'diagram') {
@@ -633,7 +633,7 @@ async function runVectorize() {
         overlay.style.display = 'none';
 
         if (!res.ok || !data.success) {
-            alert(data.error || "Gagal melakukan vektorisasi gambar.");
+            alert(data.error || "Failed to vectorize image.");
             return;
         }
 
@@ -665,7 +665,7 @@ async function runVectorize() {
 // Download Master SVG File from Server
 async function downloadMasterSvg(quality = 'full') {
     if (!currentFile) {
-        alert("Pilih file gambar terlebih dahulu.");
+        alert("Please select an image file first.");
         return;
     }
 
@@ -696,7 +696,7 @@ async function downloadMasterSvg(quality = 'full') {
 
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            alert(err.error || "Gagal mengunduh file SVG.");
+            alert(err.error || "Failed to download SVG file.");
             return;
         }
 
@@ -712,23 +712,23 @@ async function downloadMasterSvg(quality = 'full') {
         URL.revokeObjectURL(url);
     } catch (err) {
         overlay.style.display = 'none';
-        alert("Gagal mengunduh file: " + err);
+        alert("Failed to download file: " + err);
     }
 }
 
 // Copy SVG to Clipboard
 function copySvgCode() {
     if (!currentSvgString) {
-        alert("Belum ada kode SVG untuk disalin.");
+        alert("No SVG code available to copy.");
         return;
     }
     navigator.clipboard.writeText(currentSvgString).then(() => {
         const btn = document.getElementById('btn-copy-svg');
         const oldHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i> Tersalin!';
+        btn.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i> Copied!';
         setTimeout(() => { btn.innerHTML = oldHtml; }, 2000);
     }).catch(err => {
-        alert("Gagal menyalin: " + err);
+        alert("Failed to copy: " + err);
     });
 }
 </script>
