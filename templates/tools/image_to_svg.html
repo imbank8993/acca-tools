@@ -206,16 +206,18 @@
         <!-- Floating Download Bar -->
         <div class="floating-action-bar">
             <div class="action-bar-info">
-                <strong style="font-size:1rem;color:var(--text);display:flex;align-items:center;gap:.4rem">
+                <div class="action-bar-title">
                     <i class="bi bi-check-circle-fill text-success"></i> Vektor SVG Siap Digunakan
-                </strong>
-                <span id="bar-svg-info" style="color:var(--muted);font-size:.8rem">Kurva B&eacute;zier matematis &bull; Skalabilitas tak hingga</span>
+                </div>
+                <div class="action-bar-subtitle">
+                    Kurva B&eacute;zier matematis &bull; Skalabilitas tak hingga
+                </div>
             </div>
             <div class="action-bar-buttons">
-                <button type="button" class="btn btn-outline btn-sm" id="btn-copy-svg" onclick="copySvgCode()">
+                <button type="button" class="btn btn-outline" id="btn-copy-svg" onclick="copySvgCode()">
                     <i class="bi bi-clipboard"></i> Salin Kode
                 </button>
-                <button type="button" class="btn btn-outline btn-sm" onclick="downloadMasterSvg('optimal')" title="Ukuran optimal dan ringan untuk website">
+                <button type="button" class="btn btn-outline" onclick="downloadMasterSvg('optimal')" title="Ukuran optimal dan ringan untuk website">
                     <i class="bi bi-download"></i> Unduh SVG (Web)
                 </button>
                 <button type="button" class="btn btn-primary" id="btn-download-svg" onclick="downloadMasterSvg('full')">
@@ -376,27 +378,47 @@
     bottom: 1.5rem;
     background: var(--surface);
     border: 1px solid var(--border);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.14);
     border-radius: 12px;
-    padding: 0.85rem 1.5rem;
+    padding: 1rem 1.5rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 1.25rem;
+    gap: 1.5rem;
     z-index: 90;
     backdrop-filter: blur(10px);
 }
 .action-bar-info {
+    flex: 1 1 auto;
+    min-width: 250px;
+}
+.action-bar-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
     display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
+    align-items: center;
+    gap: 0.45rem;
+    white-space: nowrap;
+}
+.action-bar-subtitle {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.2rem;
+    white-space: nowrap;
 }
 .action-bar-buttons {
+    flex: 0 0 auto;
     display: flex;
-    gap: 0.5rem;
+    gap: 0.65rem;
     align-items: center;
     white-space: nowrap;
-    flex-wrap: nowrap;
+}
+.action-bar-buttons .btn {
+    white-space: nowrap;
+    padding: 0.55rem 1.15rem;
+    font-size: 0.9rem;
+    font-weight: 600;
 }
 
 @media (max-width: 900px) {
@@ -498,10 +520,10 @@ function applyPreset(preset) {
         document.getElementById('ctrl-mode').value = 'color';
         document.getElementById('ctrl-curve-mode').value = 'spline';
         document.getElementById('ctrl-hierarchical').value = 'stacked';
-        document.getElementById('ctrl-color-precision').value = 7;
-        updateColorPrecisionLabel(7);
-        document.getElementById('ctrl-speckle').value = 4;
-        document.getElementById('val-speckle').textContent = '4 px';
+        document.getElementById('ctrl-color-precision').value = 8;
+        updateColorPrecisionLabel(8);
+        document.getElementById('ctrl-speckle').value = 1;
+        document.getElementById('val-speckle').textContent = '1 px';
         document.getElementById('ctrl-trans-bg').checked = false; // Preserve background
     } else if (preset === 'logo') {
         // Logo Berwarna (Flat / Cutout)
@@ -577,6 +599,17 @@ async function runVectorize() {
 
     const overlay = document.getElementById('svg-loading-overlay');
     overlay.style.display = 'flex';
+
+    // Toggle container background: checkerboard if transparent, solid white if opaque
+    const isTrans = document.getElementById('ctrl-trans-bg').checked;
+    const renderContainer = document.getElementById('svg-render-container');
+    if (isTrans) {
+        renderContainer.classList.add('checkerboard');
+        renderContainer.style.background = '';
+    } else {
+        renderContainer.classList.remove('checkerboard');
+        renderContainer.style.background = '#ffffff';
+    }
 
     const formData = new FormData();
     formData.append('file', currentFile);

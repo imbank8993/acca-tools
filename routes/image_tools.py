@@ -1260,8 +1260,16 @@ def _vectorize_image_to_svg(
     if HAS_VTRACER:
         arr = np.array(pil_img)
         if mode == "color":
-            if transparent_bg:
-                # Mask out background if nearly pure white
+            if not transparent_bg:
+                # Composite over solid white canvas so any pre-existing alpha (e.g. from webp/png) becomes crisp white
+                bg = Image.new("RGBA", (w, h), (255, 255, 255, 255))
+                if pil_img.mode == "RGBA":
+                    bg.paste(pil_img, mask=pil_img.split()[3])
+                else:
+                    bg.paste(pil_img)
+                pil_img = bg
+            else:
+                arr = np.array(pil_img)
                 r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
                 white_mask = (r >= 244) & (g >= 244) & (b >= 244)
                 arr[white_mask, 3] = 0
@@ -1288,13 +1296,19 @@ def _vectorize_image_to_svg(
                 c_prec,
                 l_diff,
                 c_thresh,
-                4.0,   # length_threshold
+                3.0,   # length_threshold: 3.0 gives crisper details than 4.0
                 10,    # max_iterations
                 45,    # splice_threshold
                 2      # path_precision
             )
             if "<svg" in svg and "viewBox" not in svg:
                 svg = svg.replace("<svg ", f'<svg viewBox="0 0 {w} {h}" ', 1)
+
+            if not transparent_bg and "<svg" in svg:
+                idx = svg.find("<svg")
+                idx = svg.find(">", idx) + 1
+                svg = svg[:idx] + f'\n<rect width="{w}" height="{h}" fill="#ffffff"/>\n' + svg[idx:]
+
             return svg, w, h
         else:
             # Monochrome mode (signature, stamp, line art)
@@ -1504,11 +1518,11 @@ def image_to_svg():
     download_quality = request.form.get("download_quality", "full").lower()
 
     if action == "preview":
-        max_dim = 1400  # Fast interactive preview
+        max_dim = 1800  # High clarity preview for posters & detailed graphics
     elif download_quality == "optimal":
-        max_dim = 1800  # Compact web vector
+        max_dim = 2000  # Compact web vector
     else:
-        max_dim = 4000  # Full master resolution
+        max_dim = 0     # 0 = unlimited original resolution!
 
     try:
         svg_str, w, h = _vectorize_image_to_svg(
