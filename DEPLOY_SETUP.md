@@ -66,7 +66,7 @@ pengguna yang menjalankan service `acca-tools` (unit systemd di repo memakai `ro
 cd /www/wwwroot/acca-tools
 apt-get update && apt-get install -y git libsndfile1
 ./.venv/bin/python -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-./.venv/bin/python -m pip install 'git+https://github.com/ARBO-TEAM/arboTTS.git@v2.5.0#egg=arbotts[clone]'
+./.venv/bin/python -m pip install 'arbotts[clone] @ git+https://github.com/ARBO-TEAM/arboTTS.git@v2.5.0'
 ./.venv/bin/python scripts/prepare_voice_engine.py
 systemctl restart acca-tools
 ```
