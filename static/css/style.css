@@ -1401,3 +1401,23 @@ textarea { resize: vertical; }
 .record-result video { width: min(100%, 640px); border-radius: 12px; background: #111; }
 .record-result span, #video-status { color: var(--text-light); font-size: .85rem; }
 .studio-error { color: #b42335; background: rgba(220,50,70,.09); border-radius: 10px; padding: 12px 14px; margin-top: 20px; }
+
+.video-studio { max-width: 980px; }
+.video-upload { margin-bottom: 25px; }
+.video-upload > label { display: flex; align-items: center; gap: 16px; padding: 19px 21px; border: 1.5px dashed var(--border); border-radius: 14px; background: var(--bg); cursor: pointer; transition: border-color .2s, background .2s; }
+.video-upload > label:hover, .video-upload:focus-within > label { border-color: var(--primary); }
+.video-upload > label > i { font-size: 1.8rem; color: var(--primary); }
+.video-upload > label span { display: grid; gap: 3px; min-width: 0; }
+.video-upload > label small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-light); }
+.video-upload > input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.video-upload > p { margin: 8px 3px 0; color: var(--text-light); font-size: .82rem; }
+.video-settings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.video-setting { display: flex; flex-direction: column; min-width: 0; gap: 12px; padding: 17px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg); }
+.video-setting > span:first-child { font-weight: 700; color: var(--text); }
+.video-setting select, .video-duration { box-sizing: border-box; width: 100%; height: 52px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; }
+.video-setting select { padding: 0 12px; }
+.video-setting small { display: block; min-height: 2.5em; color: var(--text-light); line-height: 1.35; }
+.video-duration { display: flex; align-items: center; padding: 0 12px; }
+.video-duration input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; }
+.video-duration span { color: var(--text-light); font-size: .85rem; }
+@media (max-width: 760px) { .video-settings { grid-template-columns: 1fr; } .video-setting small { min-height: 0; } }

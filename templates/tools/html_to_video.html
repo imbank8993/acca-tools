@@ -2,18 +2,22 @@
 {% block title %}HTML ke Video - ACCA Plus{% endblock %}
 {% block top_title %}HTML ke Video{% endblock %}
 {% block content %}
-<div class="tool-page plus-studio">
+<div class="tool-page plus-studio video-studio">
   <div class="tool-header"><h1>HTML ke Video</h1><p>Ubah animasi HTML, CSS, dan JavaScript menjadi video MP4 berkualitas tinggi.</p></div>
   <div class="studio-card">
     <div class="studio-badge"><i class="bi bi-film"></i> Video studio</div>
     <form id="html-video-form" action="{{ url_for('plus_media.html_to_video') }}" method="post" enctype="multipart/form-data">
-      <label class="studio-file">Pilih file HTML<input type="file" name="file" id="html-file" accept=".html,.htm,text/html" required><span>Maksimal 2 MB · gunakan aset yang tertanam di HTML</span></label>
-      <div class="studio-grid">
-        <label>Ukuran video<select name="size"><option value="landscape">Lanskap · 1280 × 720</option><option value="portrait">Potret · 720 × 1280</option><option value="square">Persegi · 720 × 720</option></select></label>
-        <label>Durasi<input type="number" name="duration" min="1" max="10" value="5" required><span>1–10 detik</span></label>
-        <label>Frame per detik<select name="fps"><option value="15">15 FPS</option><option value="24">24 FPS</option><option value="10">10 FPS</option></select></label>
+      <div class="video-upload">
+        <label for="html-file"><i class="bi bi-filetype-html"></i><span><strong>Pilih file HTML</strong><small id="video-file-label">Klik untuk memilih .html atau .htm</small></span></label>
+        <input type="file" name="file" id="html-file" accept=".html,.htm,text/html" required>
+        <p>Maksimal 2 MB · gunakan aset yang tertanam di HTML</p>
       </div>
-      <p class="studio-hint">Animasi CSS dan JavaScript berjalan saat perekaman. Demi keamanan, konten eksternal dan berkas lokal tidak dimuat; sematkan gambar, font, atau data lain langsung di HTML. Output MP4 H.264 tanpa audio.</p>
+      <div class="video-settings">
+        <label class="video-setting"><span>Ukuran video</span><select name="size" id="video-size"><option value="auto" selected>Ikuti ukuran HTML</option><option value="landscape">Lanskap · 1280 × 720</option><option value="portrait">Potret · 720 × 1280</option><option value="square">Persegi · 720 × 720</option></select><small>Proporsi konten dipakai sebagai bawaan</small></label>
+        <label class="video-setting"><span>Durasi</span><div class="video-duration"><input type="number" name="duration" min="1" max="60" value="10" required><span>detik</span></div><small>1–60 detik (maksimal 1 menit)</small></label>
+        <label class="video-setting"><span>Frame per detik</span><select name="fps"><option value="15">15 FPS · seimbang</option><option value="24">24 FPS · lebih halus</option><option value="10">10 FPS · lebih cepat</option></select><small>FPS tinggi memerlukan waktu render lebih lama</small></label>
+      </div>
+      <p class="studio-hint">Ukuran otomatis membaca dimensi konten HTML, lalu menyesuaikannya bila melebihi batas 1920 piksel. Untuk ukuran yang pasti, tambahkan <code>data-video-width="1080" data-video-height="1920"</code> pada elemen <code>&lt;html&gt;</code>. Animasi CSS dan JavaScript berjalan saat perekaman. Konten eksternal tidak dimuat. Output MP4 H.264 tanpa audio.</p>
       {% if not ready %}<p class="studio-error">Server belum menyiapkan FFmpeg atau Playwright. Instal <code>pip install playwright</code>, jalankan <code>python -m playwright install chromium</code>, dan pastikan FFmpeg tersedia di PATH.</p>{% endif %}
       <div class="studio-actions"><button id="video-submit" type="submit" class="btn btn-primary" {% if not ready %}disabled{% endif %}><i class="bi bi-play-circle"></i> Buat video</button><span id="video-status" role="status"></span></div>
     </form>

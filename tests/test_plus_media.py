@@ -24,6 +24,26 @@ def test_plus_media_pages_and_upload_validation():
     assert too_large.status_code == 400
 
 
+def test_html_video_auto_size_and_one_minute_validation(monkeypatch):
+    assert plus_media._fit_video_size(1080, 1920) == (1080, 1920)
+    assert plus_media._fit_video_size(2160, 3840) == (1080, 1920)
+    assert plus_media._fit_video_size(None, None) == (1280, 720)
+
+    client = app.test_client()
+    monkeypatch.setattr(plus_media.shutil, "which", lambda _: None)
+    minute = client.post("/acca-plus/html-to-video", data={
+        "file": (io.BytesIO(b"<html></html>"), "page.html"),
+        "duration": "60", "fps": "15", "size": "auto",
+    })
+    assert minute.status_code == 503  # Valid settings; renderer is intentionally unavailable.
+
+    over_limit = client.post("/acca-plus/html-to-video", data={
+        "file": (io.BytesIO(b"<html></html>"), "page.html"),
+        "duration": "61", "fps": "15", "size": "auto",
+    })
+    assert over_limit.status_code == 400
+
+
 def test_voice_clone_requires_model_and_valid_reference(monkeypatch):
     client = app.test_client()
     monkeypatch.setattr(plus_media, "_voice_ready", lambda: False)

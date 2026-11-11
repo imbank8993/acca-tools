@@ -18,7 +18,7 @@ workers = 4
 
 # File-conversion tools (LibreOffice, FFmpeg, OCR, Whisper) can run for a while,
 # so allow long requests before a worker is killed.
-timeout = 300
+timeout = 720  # up to 60 s of HTML animation can take several minutes to encode
 graceful_timeout = 30
 
 # Recycle workers periodically so memory from heavy libraries doesn't accumulate.

@@ -168,8 +168,8 @@ journalctl -u acca-tools -n 50  # lihat log
 
    ```nginx
    client_max_body_size 100m;
-   proxy_read_timeout 300s;
-   proxy_send_timeout 300s;
+   proxy_read_timeout 720s;
+   proxy_send_timeout 720s;
    ```
 
 4. **SSL** → Let's Encrypt (atau mode Cloudflare) → aktifkan **Force HTTPS**.
