@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Perekam Suara - ACCA Plus{% endblock %}
+{% block top_title %}Perekam Suara{% endblock %}
+{% block content %}
+<div class="tool-page plus-studio">
+  <div class="tool-header"><h1>Perekam Suara</h1><p>Rekam langsung dari mikrofon dan unduh WAV tanpa kompresi.</p></div>
+  <div class="studio-card">
+    <div class="studio-badge"><i class="bi bi-soundwave"></i> Studio rekaman</div>
+    <div class="recorder-display"><span id="record-indicator" class="record-indicator"></span><strong id="record-time">00:00</strong><span id="record-status" role="status">Siap merekam</span></div>
+    <div class="level-track" role="meter" aria-label="Level mikrofon" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="level-fill"></div></div>
+    <div class="studio-grid">
+      <label>Perangkat mikrofon<select id="mic-device"><option value="">Mikrofon default</option></select></label>
+      <label>Profil suara<select id="audio-profile"><option value="natural">Natural · tanpa pemrosesan</option><option value="speech">Ucapan · reduksi kebisingan dan gema</option></select></label>
+    </div>
+    <p class="studio-hint">WAV PCM 16-bit mengikuti laju sampel perangkat. Gunakan mikrofon yang baik dan ruangan tenang untuk hasil paling jernih. Batas rekaman 10 menit. Akses mikrofon membutuhkan HTTPS atau localhost.</p>
+    <div class="studio-actions"><button id="record-start" class="btn btn-primary" type="button"><i class="bi bi-record-circle"></i> Mulai rekam</button><button id="record-pause" class="btn" type="button" disabled>Jeda</button><button id="record-stop" class="btn" type="button" disabled>Selesai</button></div>
+    <div id="record-result" class="record-result" hidden><audio id="record-preview" controls></audio><a id="record-download" class="btn btn-success" download="rekaman-acca.wav"><i class="bi bi-download"></i> Unduh WAV</a><span id="record-detail"></span></div>
+    <p id="record-error" class="studio-error" role="alert" hidden></p>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/voice_recorder.js') }}?v={{ asset_version }}"></script>{% endblock %}

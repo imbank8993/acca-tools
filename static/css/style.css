@@ -1374,3 +1374,30 @@ textarea { resize: vertical; }
 .about-section p strong {
     color: var(--text);
 }
+
+/* ACCA Plus media studios */
+.plus-studio { max-width: 850px; }
+.studio-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: clamp(20px, 4vw, 36px); box-shadow: 0 12px 35px rgba(0,0,0,.06); }
+.studio-badge { display: inline-flex; gap: 8px; align-items: center; color: var(--primary); font-weight: 700; margin-bottom: 24px; }
+.recorder-display { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
+.recorder-display strong { font: 700 clamp(2rem, 6vw, 3rem)/1 'Outfit', sans-serif; font-variant-numeric: tabular-nums; }
+.recorder-display span:last-child { color: var(--text-light); }
+.record-indicator { width: 13px; height: 13px; border-radius: 50%; background: #a7a7a7; }
+.record-indicator.active { background: #e3344c; box-shadow: 0 0 0 6px rgba(227,52,76,.12); animation: recorder-pulse 1.2s infinite; }
+@keyframes recorder-pulse { 50% { opacity: .45; } }
+.level-track { height: 12px; border-radius: 99px; background: var(--border); overflow: hidden; margin-bottom: 26px; }
+.level-track div { height: 100%; width: 0; background: linear-gradient(90deg,#16a34a,#a3cb32,#e8a326); transition: width .1s; }
+.studio-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 18px; margin-bottom: 18px; }
+.studio-grid label, .studio-file { display: grid; gap: 8px; font-weight: 600; color: var(--text); }
+.studio-grid select, .studio-grid input, .studio-file input { width: 100%; border: 1px solid var(--border); border-radius: 10px; background: var(--bg, #fff); color: var(--text); padding: 11px; font: inherit; }
+.studio-grid label span, .studio-file span { color: var(--text-light); font-size: .82rem; font-weight: 400; }
+.studio-file { margin-bottom: 23px; }
+.studio-hint { font-size: .89rem; line-height: 1.6; color: var(--text-light); margin: 16px 0 23px; }
+.studio-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.studio-actions .btn:disabled { opacity: .5; cursor: not-allowed; }
+.record-result { display: grid; gap: 14px; justify-items: start; margin-top: 28px; border-top: 1px solid var(--border); padding-top: 24px; }
+.record-result[hidden], .studio-error[hidden] { display: none; }
+.record-result audio { width: min(100%, 540px); }
+.record-result video { width: min(100%, 640px); border-radius: 12px; background: #111; }
+.record-result span, #video-status { color: var(--text-light); font-size: .85rem; }
+.studio-error { color: #b42335; background: rgba(220,50,70,.09); border-radius: 10px; padding: 12px 14px; margin-top: 20px; }

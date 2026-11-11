@@ -11,3 +11,4 @@ pillow-heif
 vtracer
 openai-whisper
 pix2tex
+playwright

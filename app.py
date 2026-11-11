@@ -34,6 +34,8 @@ TOOL_CATEGORIES = [
             {"id": "certificate-generator", "name": "Certificate Generator", "desc": "Generate certificates from Excel", "icon": "bi-award-fill"},
             {"id": "compress-pdf", "name": "Compress PDF", "desc": "Reduce PDF to target size", "icon": "bi-file-zip-fill"},
             {"id": "compress-image", "name": "Compress Image", "desc": "Reduce image to target size", "icon": "bi-file-image-fill"},
+            {"id": "voice-recorder", "name": "Perekam Suara", "desc": "Rekam suara jernih ke WAV tanpa kompresi", "icon": "bi-mic-fill"},
+            {"id": "html-to-video", "name": "HTML ke Video", "desc": "Render animasi HTML menjadi video MP4", "icon": "bi-film"},
         ],
     },
     {
@@ -226,6 +228,9 @@ def _asset_version():
     paths = [
         os.path.join(_STATIC_DIR, "css", "style.css"),
         os.path.join(_STATIC_DIR, "js", "main.js"),
+        os.path.join(_STATIC_DIR, "js", "voice_recorder.js"),
+        os.path.join(_STATIC_DIR, "js", "html_to_video.js"),
+        os.path.join(_STATIC_DIR, "js", "pcm_recorder_processor.js"),
         os.path.join(_STATIC_DIR, "icon.svg"),
     ]
     try:
@@ -277,6 +282,7 @@ from routes.dev_tools import bp as dev_bp
 from routes.archive_tools import bp as archive_bp
 from routes.media_tools import bp as media_bp
 from routes.acca_plus import bp as acca_plus_bp
+from routes.plus_media import bp as plus_media_bp
 from routes.capabilities import bp as capabilities_bp
 from routes.auth import bp as auth_bp
 
@@ -292,6 +298,7 @@ app.register_blueprint(dev_bp, url_prefix="/dev")
 app.register_blueprint(archive_bp, url_prefix="/archive")
 app.register_blueprint(media_bp, url_prefix="/media")
 app.register_blueprint(acca_plus_bp, url_prefix="/acca-plus")
+app.register_blueprint(plus_media_bp, url_prefix="/acca-plus")
 app.register_blueprint(capabilities_bp)
 app.register_blueprint(auth_bp)
 

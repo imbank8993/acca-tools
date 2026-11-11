@@ -48,6 +48,9 @@ apt update
 apt install -y python3-venv python3-dev build-essential   # wajib
 apt install -y libreoffice                                # konversi Office ↔ PDF (opsional)
 apt install -y ffmpeg                                      # audio/video (opsional)
+
+# Untuk ACCA Plus > HTML ke Video, setelah instalasi paket Python:
+python -m playwright install --with-deps chromium
 apt install -y tesseract-ocr tesseract-ocr-ind            # OCR + bahasa Indonesia (opsional)
 ```
 
