@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Teks ke Suara Contoh - ACCA Plus{% endblock %}
+{% block top_title %}Teks ke Suara Contoh{% endblock %}
+{% block content %}
+<div class="tool-page plus-studio">
+  <div class="tool-header"><h1>Teks ke Suara Contoh</h1><p>Buat narasi bahasa Indonesia dengan warna suara dari rekaman contoh.</p></div>
+  <div class="studio-card">
+    <div class="studio-badge"><i class="bi bi-chat-quote-fill"></i> Studio suara lokal</div>
+    <form id="voice-clone-form" action="{{ url_for('plus_media.voice_clone') }}" method="post" enctype="multipart/form-data">
+      <label class="studio-file">Contoh suara (WAV PCM)
+        <input type="file" name="reference" id="voice-reference" accept=".wav,audio/wav" required>
+        <span>3–30 detik, satu pembicara, maksimal 10 MB. Rekaman dari <a href="{{ url_for('plus_media.voice_recorder') }}">Perekam Suara</a> dapat digunakan.</span>
+        <audio id="voice-reference-preview" controls hidden></audio>
+      </label>
+      <label class="studio-file">Isi rekaman contoh
+        <textarea name="reference_text" class="text-input" rows="3" maxlength="300" placeholder="Tulis persis kata-kata yang diucapkan dalam rekaman contoh…" required></textarea>
+        <span>Transkrip contoh membantu mesin meniru suara tanpa memasang model pengenal ucapan tambahan.</span>
+      </label>
+      <label class="studio-file">Teks narasi
+        <textarea name="text" id="voice-text" class="text-input" rows="6" maxlength="500" placeholder="Tulis teks yang ingin dibacakan…" required></textarea>
+        <span><span id="voice-count">0</span>/500 karakter · gunakan tanda baca agar jeda alami</span>
+      </label>
+      <label class="checkbox-label"><input type="checkbox" name="voice_permission" value="yes" required><span>Saya berhak menggunakan suara dalam rekaman contoh ini.</span></label>
+      <p class="studio-hint">Pemrosesan berlangsung di VPS. Rekaman dan hasil sementara dihapus setelah permintaan selesai. Hasil meniru warna suara; intonasi dan pelafalan dapat berbeda dari pembicara asli.</p>
+      {% if not ready %}<p class="studio-error">Model suara lokal belum terpasang. Admin VPS perlu menjalankan langkah “Teks ke Suara Contoh” di panduan deployment.</p>{% endif %}
+      <div class="studio-actions"><button id="voice-submit" class="btn btn-primary" type="submit" {% if not ready %}disabled{% endif %}><i class="bi bi-soundwave"></i> Buat audio</button><span id="voice-status" role="status"></span></div>
+    </form>
+    <div id="voice-result" class="record-result" hidden><audio id="voice-preview" controls></audio><a id="voice-download" class="btn btn-success" download="narasi-acca.wav"><i class="bi bi-download"></i> Unduh WAV</a></div>
+    <p id="voice-error" class="studio-error" role="alert" hidden></p>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/voice_clone.js') }}?v={{ asset_version }}"></script>{% endblock %}
