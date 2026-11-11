@@ -1,8 +1,10 @@
 """ACCA Plus audio recording, local voice synthesis, and HTML video export."""
 
 import importlib.util
+import base64
 import io
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -19,7 +21,7 @@ MAX_HTML_BYTES = 2 * 1024 * 1024
 MAX_VOICE_BYTES = 10 * 1024 * 1024
 VOICE_MODEL_DIR = Path(os.environ.get("ACCA_VOICE_MODEL_DIR", Path(__file__).resolve().parent.parent / "voice_models"))
 SIZES = {"square": (720, 720), "landscape": (1280, 720), "portrait": (720, 1280)}
-FRAME_RATES = {10, 15, 24}
+FRAME_RATES = {10, 15, 24, 30}
 
 
 def _fit_video_size(width, height):
@@ -58,6 +60,49 @@ def _html_video_size(page):
       return pair(root.scrollWidth, root.scrollHeight) || [1280, 720];
     }""")
     return _fit_video_size(*dimensions)
+
+
+def _html_video_timing(page, html):
+    """Prefer the page's timeline; fall back to finite CSS animations."""
+    timing = page.evaluate(r"""() => {
+      const root = document.documentElement, body = document.body;
+      const positive = value => Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : null;
+      const meta = name => document.querySelector(`meta[name="${name}"]`)?.content;
+      let duration = positive(root.dataset.videoDuration) || positive(body.dataset.videoDuration)
+        || positive(meta('video-duration'));
+      if (!duration) {
+        for (const name of ['DUR', 'DURATION', 'TOTAL_DURATION', 'VIDEO_DURATION']) {
+          try { duration = positive(eval(name)); if (duration) break; } catch (_) {}
+        }
+      }
+      if (!duration) {
+        try { if (Array.isArray(SCENES)) duration = positive(SCENES.at(-1)?.[1]); } catch (_) {}
+      }
+      if (!duration) {
+        const ends = document.getAnimations().map(a => a.effect?.getComputedTiming()?.endTime)
+          .filter(v => Number.isFinite(v) && v > 0);
+        if (ends.length) duration = Math.max(...ends) / 1000;
+      }
+      let fps = positive(root.dataset.videoFps) || positive(body.dataset.videoFps)
+        || positive(meta('video-fps'));
+      if (!fps) {
+        for (const name of ['FPS', 'FRAME_RATE', 'VIDEO_FPS']) {
+          try { fps = positive(eval(name)); if (fps) break; } catch (_) {}
+        }
+      }
+      return {duration, fps, seek: typeof window.__seek === 'function'};
+    }""")
+    if not timing["fps"]:
+        match = re.search(r"\.captureStream\(\s*(\d+(?:\.\d+)?)\s*\)", html, re.IGNORECASE)
+        if match:
+            timing["fps"] = float(match.group(1))
+    if not timing["duration"]:
+        match = re.search(r"\b(?:const|let|var)\s+(?:DUR|DURATION|TOTAL_DURATION|VIDEO_DURATION)\s*=\s*(\d+(?:\.\d+)?)\b", html, re.IGNORECASE)
+        if match:
+            timing["duration"] = float(match.group(1))
+    duration = min(60, max(1, math.ceil(timing["duration"]))) if timing["duration"] else 10
+    fps = min(FRAME_RATES, key=lambda n: abs(n - timing["fps"])) if timing["fps"] else 15
+    return duration, fps, timing["seek"]
 
 
 @bp.get("/voice-recorder")
@@ -139,13 +184,19 @@ def html_to_video():
     upload = request.files.get("file")
     if not upload or not upload.filename or not upload.filename.lower().endswith((".html", ".htm")):
         return jsonify(error="Pilih berkas HTML (.html atau .htm)."), 400
+    duration_raw = request.form.get("duration", "auto")
+    fps_raw = request.form.get("fps", "auto")
     try:
-        duration = int(request.form.get("duration", "10"))
-        fps = int(request.form.get("fps", "15"))
+        manual_duration = None if duration_raw == "auto" else int(
+            request.form.get("custom_duration", "") if duration_raw == "manual" else duration_raw
+        )
+        manual_fps = None if fps_raw == "auto" else int(fps_raw)
     except ValueError:
         return jsonify(error="Durasi dan FPS harus berupa angka."), 400
     size_mode = request.form.get("size", "auto")
-    if (size_mode != "auto" and size_mode not in SIZES) or not 1 <= duration <= 60 or fps not in FRAME_RATES:
+    if ((size_mode != "auto" and size_mode not in SIZES) or
+            (manual_duration is not None and not 1 <= manual_duration <= 60) or
+            (manual_fps is not None and manual_fps not in FRAME_RATES)):
         return jsonify(error="Pilihan ukuran, durasi, atau FPS tidak valid."), 400
     raw = upload.stream.read(MAX_HTML_BYTES + 1)
     if not raw or len(raw) > MAX_HTML_BYTES:
@@ -173,6 +224,13 @@ def html_to_video():
                     page.set_content(html, wait_until="load", timeout=15000)
                     page.evaluate("document.fonts.ready")
                     size = _html_video_size(page) if size_mode == "auto" else initial_size
+                    html_duration, html_fps, has_seek = _html_video_timing(page, html)
+                    duration = manual_duration if manual_duration is not None else html_duration
+                    fps = manual_fps if manual_fps is not None else html_fps
+                    canvas_capture = has_seek and bool(page.evaluate("""() => {
+                      const c = document.querySelector('canvas');
+                      return c && c.width >= 160 && c.height >= 160;
+                    }"""))
                     if size != initial_size:
                         page.set_viewport_size({"width": size[0], "height": size[1]})
                     output = os.path.join(workdir, "video.mp4")
@@ -181,6 +239,9 @@ def html_to_video():
                         encoder = subprocess.Popen(
                             [shutil.which("ffmpeg"), "-y", "-hide_banner", "-loglevel", "error",
                              "-f", "image2pipe", "-framerate", str(fps), "-vcodec", "png", "-i", "pipe:0",
+                             "-vf", (f"scale={size[0]}:{size[1]}:force_original_aspect_ratio=decrease:flags=lanczos,"
+                                      f"pad={size[0]}:{size[1]}:(ow-iw)/2:(oh-ih)/2") if canvas_capture
+                                     else f"scale={size[0]}:{size[1]}:flags=lanczos",
                              "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
                              "-movflags", "+faststart", output],
                             stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=ffmpeg_errors,
@@ -190,12 +251,19 @@ def html_to_video():
                             for frame in range(duration * fps):
                                 if time.monotonic() - start > 540:
                                     raise TimeoutError("Proses render melewati batas 9 menit.")
-                                target = start + frame / fps
-                                delay = target - time.monotonic()
-                                if delay > 0:
-                                    time.sleep(delay)
-                                frame_bytes = page.screenshot(type="png", full_page=False,
-                                                              animations="allow", timeout=15000)
+                                if has_seek:
+                                    page.evaluate("t => window.__seek(t)", frame / fps)
+                                else:
+                                    target = start + frame / fps
+                                    delay = target - time.monotonic()
+                                    if delay > 0:
+                                        time.sleep(delay)
+                                if canvas_capture:
+                                    encoded = page.evaluate("() => document.querySelector('canvas').toDataURL('image/png').split(',')[1]")
+                                    frame_bytes = base64.b64decode(encoded)
+                                else:
+                                    frame_bytes = page.screenshot(type="png", full_page=False,
+                                                                  animations="allow", timeout=15000)
                                 try:
                                     encoder.stdin.write(frame_bytes)
                                 except BrokenPipeError as exc:
@@ -230,4 +298,6 @@ def html_to_video():
     response.headers["Cache-Control"] = "private, no-store"
     response.headers["X-Video-Width"] = str(size[0])
     response.headers["X-Video-Height"] = str(size[1])
+    response.headers["X-Video-Duration"] = str(duration)
+    response.headers["X-Video-Fps"] = str(fps)
     return response

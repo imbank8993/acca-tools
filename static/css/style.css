@@ -1420,4 +1420,6 @@ textarea { resize: vertical; }
 .video-duration { display: flex; align-items: center; padding: 0 12px; }
 .video-duration input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; }
 .video-duration span { color: var(--text-light); font-size: .85rem; }
+.video-duration[hidden] { display: none; }
+#video-detected { color: var(--primary); font-weight: 600; }
 @media (max-width: 760px) { .video-settings { grid-template-columns: 1fr; } .video-setting small { min-height: 0; } }
