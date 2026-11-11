@@ -34,7 +34,6 @@ TOOL_CATEGORIES = [
             {"id": "certificate-generator", "name": "Certificate Generator", "desc": "Generate certificates from Excel", "icon": "bi-award-fill"},
             {"id": "compress-pdf", "name": "Compress PDF", "desc": "Reduce PDF to target size", "icon": "bi-file-zip-fill"},
             {"id": "compress-image", "name": "Compress Image", "desc": "Reduce image to target size", "icon": "bi-file-image-fill"},
-            {"id": "voice-recorder", "name": "Perekam Suara", "desc": "Rekam suara jernih ke WAV tanpa kompresi", "icon": "bi-mic-fill"},
             {"id": "html-to-video", "name": "HTML ke Video", "desc": "Render animasi HTML menjadi video MP4", "icon": "bi-film"},
         ],
     },
@@ -205,6 +204,7 @@ TOOL_CATEGORIES = [
         "name": "Audio & Video",
         "icon": "bi-camera-reels-fill",
         "tools": [
+            {"id": "voice-recorder", "name": "Voice Recorder", "desc": "Record clear, uncompressed WAV audio", "icon": "bi-mic-fill"},
             {"id": "convert-audio", "name": "Convert Audio", "desc": "Change between audio formats", "icon": "bi-music-note-beamed"},
             {"id": "convert-video", "name": "Convert Video", "desc": "Change between video formats", "icon": "bi-camera-video-fill"},
             {"id": "extract-audio", "name": "Extract Audio", "desc": "Pull audio track from a video", "icon": "bi-mic-fill"},

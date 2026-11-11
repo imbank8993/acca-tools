@@ -19,8 +19,8 @@
     const current = $('mic-device').value;
     try {
       const inputs = (await navigator.mediaDevices.enumerateDevices()).filter(device => device.kind === 'audioinput');
-      $('mic-device').replaceChildren(new Option('Mikrofon default', ''));
-      inputs.forEach((device, i) => $('mic-device').add(new Option(device.label || `Mikrofon ${i + 1}`, device.deviceId)));
+      $('mic-device').replaceChildren(new Option('Default microphone', ''));
+      inputs.forEach((device, i) => $('mic-device').add(new Option(device.label || `Microphone ${i + 1}`, device.deviceId)));
       $('mic-device').value = [...$('mic-device').options].some(item => item.value === current) ? current : '';
     } catch (_) { /* Browser may withhold device names before permission. */ }
   }
@@ -70,24 +70,24 @@
     paused = true;
     const rate = context.sampleRate;
     await cleanup();
-    start.disabled = false; pause.disabled = true; stop.disabled = true;
+    start.disabled = false; pause.disabled = true; pause.textContent = 'Pause'; stop.disabled = true;
     $('record-indicator').classList.remove('active');
     clock.textContent = format(elapsed);
-    if (!samples) { status.textContent = 'Tidak ada suara terekam'; showError('Rekaman kosong. Coba lagi.'); return; }
+    if (!samples) { status.textContent = 'No audio recorded'; showError('The recording is empty. Please try again.'); return; }
     if (playingUrl) URL.revokeObjectURL(playingUrl);
     const blob = wavBlob(chunks, samples, rate);
     playingUrl = URL.createObjectURL(blob);
     $('record-preview').src = playingUrl;
     $('record-download').href = playingUrl;
-    $('record-download').download = `rekaman-acca-${new Date().toISOString().replace(/[:.]/g, '-')}.wav`;
+    $('record-download').download = `acca-recording-${new Date().toISOString().replace(/[:.]/g, '-')}.wav`;
     $('record-detail').textContent = `${(blob.size / 1024 / 1024).toFixed(1)} MB · ${Math.round(rate / 1000)} kHz · PCM 16-bit`;
     $('record-result').hidden = false;
-    status.textContent = 'Rekaman selesai';
+    status.textContent = 'Recording complete';
     chunks = []; samples = 0;
   }
   start.onclick = async () => {
     error.hidden = true;
-    if (!navigator.mediaDevices?.getUserMedia || !window.AudioWorkletNode) { showError('Browser ini tidak mendukung perekaman WAV. Gunakan browser terbaru melalui HTTPS atau localhost.'); return; }
+    if (!navigator.mediaDevices?.getUserMedia || !window.AudioWorkletNode) { showError('This browser does not support WAV recording. Use an up-to-date browser over HTTPS or localhost.'); return; }
     start.disabled = true;
     try {
       const speech = $('audio-profile').value === 'speech';
@@ -107,17 +107,17 @@
       worklet.port.onmessage = event => { chunks.push(event.data); samples += event.data.length; };
       $('record-result').hidden = true;
       $('record-indicator').classList.add('active');
-      status.textContent = 'Merekam'; pause.disabled = false; stop.disabled = false;
+      status.textContent = 'Recording'; pause.disabled = false; stop.disabled = false;
       timer = setInterval(updateClock, 250); drawLevel();
     } catch (cause) {
       await cleanup(); start.disabled = false;
-      showError(cause.name === 'NotAllowedError' ? 'Izin mikrofon ditolak. Izinkan mikrofon di pengaturan browser.' : `Mikrofon tidak dapat dibuka: ${cause.message}`);
+      showError(cause.name === 'NotAllowedError' ? 'Microphone access was denied. Allow it in your browser settings.' : `Could not open the microphone: ${cause.message}`);
     }
   };
   pause.onclick = () => {
     if (!worklet) return;
-    if (!paused) { elapsed += (performance.now() - tickStart) / 1000; paused = true; worklet.port.postMessage('pause'); pause.textContent = 'Lanjutkan'; status.textContent = 'Dijeda'; }
-    else { tickStart = performance.now(); paused = false; worklet.port.postMessage('resume'); pause.textContent = 'Jeda'; status.textContent = 'Merekam'; }
+    if (!paused) { elapsed += (performance.now() - tickStart) / 1000; paused = true; worklet.port.postMessage('pause'); pause.textContent = 'Resume'; status.textContent = 'Paused'; }
+    else { tickStart = performance.now(); paused = false; worklet.port.postMessage('resume'); pause.textContent = 'Pause'; status.textContent = 'Recording'; }
     updateClock();
   };
   stop.onclick = finish;

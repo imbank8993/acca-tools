@@ -32,6 +32,11 @@ FFMPEG_INSTALL_NOTE = (
 )
 
 
+@bp.get("/voice-recorder")
+def voice_recorder():
+    return render_template("tools/voice_recorder.html")
+
+
 def _ffmpeg_available_notes():
     if FFMPEG:
         return (

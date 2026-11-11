@@ -11,7 +11,7 @@ import tempfile
 import time
 import math
 
-from flask import Blueprint, jsonify, render_template, request, send_file
+from flask import Blueprint, jsonify, redirect, render_template, request, send_file, url_for
 
 bp = Blueprint("plus_media", __name__)
 
@@ -103,7 +103,7 @@ def _html_video_timing(page, html):
 
 @bp.get("/voice-recorder")
 def voice_recorder():
-    return render_template("tools/voice_recorder.html")
+    return redirect(url_for("media.voice_recorder"), code=301)
 
 
 @bp.route("/html-to-video", methods=["GET", "POST"])

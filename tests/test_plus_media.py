@@ -6,7 +6,8 @@ from routes import plus_media
 
 def test_plus_media_pages_and_upload_validation():
     client = app.test_client()
-    assert client.get("/acca-plus/voice-recorder").status_code == 200
+    assert client.get("/media/voice-recorder").status_code == 200
+    assert client.get("/acca-plus/voice-recorder").headers["Location"].endswith("/media/voice-recorder")
     assert client.get("/acca-plus/html-to-video").status_code == 200
     assert client.get("/acca-plus/voice-clone").status_code == 404
     assert client.post("/acca-plus/html-to-video").status_code == 400
