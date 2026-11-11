@@ -423,6 +423,9 @@ a { color: var(--primary); text-decoration: none; }
     justify-content: center;
     opacity: 0.5;
     color: currentColor;
+    background-color: currentColor;
+    -webkit-mask: url('../images/dropdown-chevron.svg') center / 20px 20px no-repeat;
+    mask: url('../images/dropdown-chevron.svg') center / 20px 20px no-repeat;
     transition: transform .25s ease, opacity .2s ease;
     transform-origin: center center;
 }
@@ -1423,3 +1426,14 @@ textarea { resize: vertical; }
 .video-duration[hidden] { display: none; }
 #video-detected { color: var(--primary); font-weight: 600; }
 @media (max-width: 760px) { .video-settings { grid-template-columns: 1fr; } .video-setting small { min-height: 0; } }
+
+/* The same 20px chevron is used for every form select and sidebar category. */
+select:not([multiple]) {
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url('../images/dropdown-chevron.svg');
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 20px 20px;
+    padding-right: 38px;
+}

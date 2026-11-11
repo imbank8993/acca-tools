@@ -56,9 +56,7 @@
                         <i class="bi {{ cat.icon }} menu-icon"></i>
                         <span class="menu-label">{{ cat.name }}</span>
                     </div>
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" class="chevron" aria-hidden="true">
-                        <path d="M12 14L8 10H16L12 14Z"></path>
-                    </svg>
+                    <span class="chevron" aria-hidden="true"></span>
                 </button>
                 <div class="submenu nav-items">
                     {% for tool in cat.tools %}
