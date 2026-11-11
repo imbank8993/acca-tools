@@ -56,36 +56,6 @@ apt install -y tesseract-ocr tesseract-ocr-ind            # OCR + bahasa Indones
 
 Tool tetap jalan tanpa paket opsional — fitur terkait saja yang nonaktif (cek di `/capabilities`).
 
-### ACCA Plus — Teks ke Suara Contoh (sekali di VPS)
-
-Fitur ini memakai model [ArboTTS](https://github.com/ARBO-TEAM/arboTTS) secara lokal.
-Transkrip rekaman contoh dibuat otomatis oleh mesin suara; pengguna hanya mengunggah WAV dan
-menulis teks narasi. Siapkan sedikitnya 6 GB RAM dan sekitar 2 GB ruang disk untuk model.
-Model utama diunduh saat persiapan; komponen transkripsi dapat diunduh saat penggunaan pertama.
-Jalankan sebagai pengguna yang menjalankan service `acca-tools` (unit systemd di repo memakai `root`):
-
-```bash
-cd /www/wwwroot/acca-tools
-apt-get update && apt-get install -y git ffmpeg libsndfile1
-./.venv/bin/python -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-./.venv/bin/python -m pip install 'arbotts[clone] @ git+https://github.com/ARBO-TEAM/arboTTS.git@v2.5.0'
-./.venv/bin/python scripts/prepare_voice_engine.py
-systemctl restart acca-tools
-```
-
-Pastikan perintah persiapan menampilkan `Voice model ready`. Model dan cache
-memerlukan ruang disk beberapa GB. Uji dengan contoh suara WAV milik Anda (5–30 detik):
-
-```bash
-./.venv/bin/python scripts/voice_clone_worker.py voice_models /path/ke/contoh.wav /tmp/acca-uji.wav 'Halo, ini uji suara.'
-```
-
-Jika uji gagal, pesan Python di terminal menunjukkan penyebabnya. Untuk kegagalan di situs,
-gunakan kode kesalahan yang ditampilkan untuk mencari traceback di `journalctl -u acca-tools -n 200 --no-pager`.
-Jika venv diganti atau cache model
-terhapus, jalankan persiapan lagi. Webhook `scripts/deploy.sh` sengaja tidak
-memasang paket AI berat saat setiap push.
-
 ---
 
 ## Step 3 — Deploy Key (read-only) agar VPS bisa `git pull`

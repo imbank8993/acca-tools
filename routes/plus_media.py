@@ -1,4 +1,4 @@
-"""ACCA Plus audio recording, local voice synthesis, and HTML video export."""
+"""ACCA Plus audio recording and HTML video export."""
 
 import importlib.util
 import base64
@@ -9,18 +9,13 @@ import shutil
 import subprocess
 import tempfile
 import time
-import wave
 import math
-import uuid
-from pathlib import Path
 
-from flask import Blueprint, current_app, jsonify, render_template, request, send_file
+from flask import Blueprint, jsonify, render_template, request, send_file
 
 bp = Blueprint("plus_media", __name__)
 
 MAX_HTML_BYTES = 2 * 1024 * 1024
-MAX_VOICE_BYTES = 10 * 1024 * 1024
-VOICE_MODEL_DIR = Path(os.environ.get("ACCA_VOICE_MODEL_DIR", Path(__file__).resolve().parent.parent / "voice_models"))
 SIZES = {"square": (720, 720), "landscape": (1280, 720), "portrait": (720, 1280)}
 FRAME_RATES = {10, 15, 24, 30}
 
@@ -109,71 +104,6 @@ def _html_video_timing(page, html):
 @bp.get("/voice-recorder")
 def voice_recorder():
     return render_template("tools/voice_recorder.html")
-
-
-def _voice_ready():
-    return importlib.util.find_spec("arbotts") is not None and (VOICE_MODEL_DIR / "READY").is_file()
-
-
-@bp.route("/voice-clone", methods=["GET", "POST"])
-def voice_clone():
-    if request.method == "GET":
-        return render_template("tools/voice_clone.html", ready=_voice_ready())
-
-    if not _voice_ready():
-        return jsonify(error="Model suara lokal belum siap di VPS. Lihat panduan instalasi di halaman ini."), 503
-    text = request.form.get("text", "").strip()
-    upload = request.files.get("reference")
-    if not text or len(text) > 500:
-        return jsonify(error="Masukkan teks sepanjang 1–500 karakter."), 400
-    if not upload or not upload.filename or not upload.filename.lower().endswith(".wav"):
-        return jsonify(error="Unggah contoh suara dalam format WAV."), 400
-    raw = upload.stream.read(MAX_VOICE_BYTES + 1)
-    if not raw or len(raw) > MAX_VOICE_BYTES:
-        return jsonify(error="Contoh suara harus berukuran maksimal 10 MB."), 400
-    try:
-        with wave.open(io.BytesIO(raw), "rb") as wav:
-            seconds = wav.getnframes() / wav.getframerate()
-            valid = wav.getcomptype() == "NONE" and wav.getnchannels() in (1, 2) and 8000 <= wav.getframerate() <= 96000
-    except (wave.Error, EOFError, ZeroDivisionError):
-        valid, seconds = False, 0
-    if not valid or not 3 <= seconds <= 30:
-        return jsonify(error="Gunakan WAV PCM mono/stereo berdurasi 3–30 detik."), 400
-
-    with tempfile.TemporaryDirectory(prefix="acca-voice-") as workdir:
-        reference = os.path.join(workdir, "reference.wav")
-        output = os.path.join(workdir, "speech.wav")
-        with open(reference, "wb") as file:
-            file.write(raw)
-        try:
-            proc = subprocess.run(
-                [os.sys.executable, str(Path(__file__).resolve().parent.parent / "scripts" / "voice_clone_worker.py"),
-                 str(VOICE_MODEL_DIR), reference, output, text],
-                capture_output=True, timeout=600,
-            )
-        except subprocess.TimeoutExpired:
-            return jsonify(error="Pembuatan suara melewati batas waktu. Coba teks yang lebih pendek."), 504
-        if proc.returncode or not os.path.isfile(output):
-            error_id = uuid.uuid4().hex[:8]
-            detail = proc.stderr.decode("utf-8", "replace")[-4000:]
-            current_app.logger.error("Voice synthesis failed [%s] (exit %s): %s", error_id, proc.returncode, detail)
-            if "out of memory" in detail.lower() or "killed" in detail.lower():
-                message = "Memori VPS tidak cukup untuk menjalankan model suara."
-            elif "offline" in detail.lower() or "local_files_only" in detail.lower():
-                message = "Berkas model suara belum lengkap. Jalankan ulang persiapan model di VPS."
-            elif "modulenotfounderror" in detail.lower():
-                message = "Paket model suara belum lengkap. Periksa instalasi di VPS."
-            else:
-                message = "Pembuatan suara gagal. Periksa log server"
-            return jsonify(error=f"{message} (kode {error_id})."), 500
-        if os.path.getsize(output) > 50 * 1024 * 1024:
-            return jsonify(error="Hasil audio terlalu besar."), 500
-        with open(output, "rb") as file:
-            data = file.read()
-    response = send_file(io.BytesIO(data), mimetype="audio/wav", as_attachment=True,
-                         download_name="narasi-acca.wav")
-    response.headers["Cache-Control"] = "private, no-store"
-    return response
 
 
 @bp.route("/html-to-video", methods=["GET", "POST"])

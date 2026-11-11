@@ -1391,10 +1391,9 @@ textarea { resize: vertical; }
 .level-track { height: 12px; border-radius: 99px; background: var(--border); overflow: hidden; margin-bottom: 26px; }
 .level-track div { height: 100%; width: 0; background: linear-gradient(90deg,#16a34a,#a3cb32,#e8a326); transition: width .1s; }
 .studio-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 18px; margin-bottom: 18px; }
-.studio-grid label, .studio-file { display: grid; gap: 8px; font-weight: 600; color: var(--text); }
-.studio-grid select, .studio-grid input, .studio-file input { width: 100%; border: 1px solid var(--border); border-radius: 10px; background: var(--bg, #fff); color: var(--text); padding: 11px; font: inherit; }
-.studio-grid label span, .studio-file span { color: var(--text-light); font-size: .82rem; font-weight: 400; }
-.studio-file { margin-bottom: 23px; }
+.studio-grid label { display: grid; gap: 8px; font-weight: 600; color: var(--text); }
+.studio-grid select, .studio-grid input { width: 100%; border: 1px solid var(--border); border-radius: 10px; background: var(--bg, #fff); color: var(--text); padding: 11px; font: inherit; }
+.studio-grid label span { color: var(--text-light); font-size: .82rem; font-weight: 400; }
 .studio-hint { font-size: .89rem; line-height: 1.6; color: var(--text-light); margin: 16px 0 23px; }
 .studio-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .studio-actions .btn:disabled { opacity: .5; cursor: not-allowed; }

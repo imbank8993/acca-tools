@@ -36,7 +36,6 @@ TOOL_CATEGORIES = [
             {"id": "compress-image", "name": "Compress Image", "desc": "Reduce image to target size", "icon": "bi-file-image-fill"},
             {"id": "voice-recorder", "name": "Perekam Suara", "desc": "Rekam suara jernih ke WAV tanpa kompresi", "icon": "bi-mic-fill"},
             {"id": "html-to-video", "name": "HTML ke Video", "desc": "Render animasi HTML menjadi video MP4", "icon": "bi-film"},
-            {"id": "voice-clone", "name": "Teks ke Suara Contoh", "desc": "Buat narasi bahasa Indonesia dari contoh suara", "icon": "bi-chat-quote-fill"},
         ],
     },
     {
@@ -232,7 +231,6 @@ def _asset_version():
         os.path.join(_STATIC_DIR, "js", "voice_recorder.js"),
         os.path.join(_STATIC_DIR, "js", "html_to_video.js"),
         os.path.join(_STATIC_DIR, "js", "pcm_recorder_processor.js"),
-        os.path.join(_STATIC_DIR, "js", "voice_clone.js"),
         os.path.join(_STATIC_DIR, "icon.svg"),
     ]
     try:
