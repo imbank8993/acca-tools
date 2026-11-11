@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 
-def generate(model_dir: Path, reference: Path, output: Path, text: str, reference_text: str) -> None:
+def generate(model_dir: Path, reference: Path, output: Path, text: str) -> None:
     import numpy as np
     import soundfile as sf
     from arbotts import ArboTTS
@@ -12,7 +12,7 @@ def generate(model_dir: Path, reference: Path, output: Path, text: str, referenc
     if not (model_dir / "READY").is_file():
         raise RuntimeError("Voice model has not been prepared")
     model = ArboTTS(tier="studio_clone")
-    audio, _ = model.clone(text=text, reference=reference, reference_text=reference_text,
+    audio, _ = model.clone(text=text, reference=reference, reference_text=None,
                            phonetic_preprocess=True, polish_timbre=False)
     audio = np.asarray(audio, dtype=np.float32).reshape(-1)
     if not audio.size or not np.all(np.isfinite(audio)):
@@ -24,4 +24,4 @@ def generate(model_dir: Path, reference: Path, output: Path, text: str, referenc
 
 
 if __name__ == "__main__":
-    generate(Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]), sys.argv[4], sys.argv[5])
+    generate(Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]), sys.argv[4])

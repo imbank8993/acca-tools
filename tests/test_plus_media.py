@@ -1,4 +1,5 @@
 import io
+import subprocess
 import wave
 
 from app import app
@@ -65,7 +66,7 @@ def test_voice_clone_requires_model_and_valid_reference(monkeypatch):
 
     monkeypatch.setattr(plus_media, "_voice_ready", lambda: True)
     invalid = client.post("/acca-plus/voice-clone", data={
-        "text": "Halo semuanya.", "reference_text": "Halo.", "voice_permission": "yes",
+        "text": "Halo semuanya.",
         "reference": (io.BytesIO(b"not audio"), "sample.wav"),
     })
     assert invalid.status_code == 400
@@ -78,7 +79,37 @@ def test_voice_clone_requires_model_and_valid_reference(monkeypatch):
         wav.writeframes(b"\0\0" * 16000)
     wav_bytes.seek(0)
     short = client.post("/acca-plus/voice-clone", data={
-        "text": "Halo semuanya.", "reference_text": "Halo.", "voice_permission": "yes",
+        "text": "Halo semuanya.",
         "reference": (wav_bytes, "sample.wav"),
     })
     assert short.status_code == 400
+
+
+def test_voice_clone_accepts_only_sample_and_text(monkeypatch):
+    monkeypatch.setattr(plus_media, "_voice_ready", lambda: True)
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        with wave.open(args[4], "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(16000)
+            wav.writeframes(b"\0\0" * 16000)
+        return subprocess.CompletedProcess(args, 0, b"", b"")
+
+    monkeypatch.setattr(plus_media.subprocess, "run", fake_run)
+    sample = io.BytesIO()
+    with wave.open(sample, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(16000)
+        wav.writeframes(b"\0\0" * (16000 * 5))
+    sample.seek(0)
+    response = app.test_client().post("/acca-plus/voice-clone", data={
+        "text": "Halo semuanya.", "reference": (sample, "contoh.wav"),
+    })
+    assert response.status_code == 200
+    assert response.mimetype == "audio/wav"
+    assert len(calls) == 1
+    assert calls[0][-1] == "Halo semuanya."

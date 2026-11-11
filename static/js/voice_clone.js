@@ -21,7 +21,7 @@
     error.hidden = true; result.hidden = true;
     const file = reference.files[0];
     if (!file || file.size > 10 * 1024 * 1024) { error.textContent = 'Pilih WAV maksimal 10 MB.'; error.hidden = false; return; }
-    button.disabled = true; status.textContent = 'Membuat audio di VPS…';
+    button.disabled = true; status.textContent = 'Mengenali contoh suara dan membuat audio di VPS… Proses pertama dapat memerlukan beberapa menit.';
     try {
       const response = await fetch(form.action, {method: 'POST', body: new FormData(form)});
       if (!response.ok) {

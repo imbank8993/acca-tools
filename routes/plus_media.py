@@ -11,6 +11,7 @@ import tempfile
 import time
 import wave
 import math
+import uuid
 from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, render_template, request, send_file
@@ -122,16 +123,11 @@ def voice_clone():
     if not _voice_ready():
         return jsonify(error="Model suara lokal belum siap di VPS. Lihat panduan instalasi di halaman ini."), 503
     text = request.form.get("text", "").strip()
-    reference_text = request.form.get("reference_text", "").strip()
     upload = request.files.get("reference")
     if not text or len(text) > 500:
         return jsonify(error="Masukkan teks sepanjang 1–500 karakter."), 400
-    if not reference_text or len(reference_text) > 300:
-        return jsonify(error="Tuliskan isi rekaman contoh sepanjang 1–300 karakter."), 400
     if not upload or not upload.filename or not upload.filename.lower().endswith(".wav"):
         return jsonify(error="Unggah contoh suara dalam format WAV."), 400
-    if request.form.get("voice_permission") != "yes":
-        return jsonify(error="Pastikan Anda berhak menggunakan contoh suara tersebut."), 400
     raw = upload.stream.read(MAX_VOICE_BYTES + 1)
     if not raw or len(raw) > MAX_VOICE_BYTES:
         return jsonify(error="Contoh suara harus berukuran maksimal 10 MB."), 400
@@ -150,19 +146,26 @@ def voice_clone():
         with open(reference, "wb") as file:
             file.write(raw)
         try:
-            worker_env = os.environ.copy()
-            worker_env["HF_HUB_OFFLINE"] = "1"
-            worker_env["TRANSFORMERS_OFFLINE"] = "1"
             proc = subprocess.run(
                 [os.sys.executable, str(Path(__file__).resolve().parent.parent / "scripts" / "voice_clone_worker.py"),
-                 str(VOICE_MODEL_DIR), reference, output, text, reference_text],
-                capture_output=True, timeout=240, env=worker_env,
+                 str(VOICE_MODEL_DIR), reference, output, text],
+                capture_output=True, timeout=600,
             )
         except subprocess.TimeoutExpired:
             return jsonify(error="Pembuatan suara melewati batas waktu. Coba teks yang lebih pendek."), 504
         if proc.returncode or not os.path.isfile(output):
-            current_app.logger.error("Voice synthesis failed: %s", proc.stderr.decode("utf-8", "replace")[-1500:])
-            return jsonify(error="Pembuatan suara gagal. Periksa model suara dan log server."), 500
+            error_id = uuid.uuid4().hex[:8]
+            detail = proc.stderr.decode("utf-8", "replace")[-4000:]
+            current_app.logger.error("Voice synthesis failed [%s] (exit %s): %s", error_id, proc.returncode, detail)
+            if "out of memory" in detail.lower() or "killed" in detail.lower():
+                message = "Memori VPS tidak cukup untuk menjalankan model suara."
+            elif "offline" in detail.lower() or "local_files_only" in detail.lower():
+                message = "Berkas model suara belum lengkap. Jalankan ulang persiapan model di VPS."
+            elif "modulenotfounderror" in detail.lower():
+                message = "Paket model suara belum lengkap. Periksa instalasi di VPS."
+            else:
+                message = "Pembuatan suara gagal. Periksa log server"
+            return jsonify(error=f"{message} (kode {error_id})."), 500
         if os.path.getsize(output) > 50 * 1024 * 1024:
             return jsonify(error="Hasil audio terlalu besar."), 500
         with open(output, "rb") as file:
