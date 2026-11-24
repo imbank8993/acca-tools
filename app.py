@@ -208,6 +208,7 @@ TOOL_CATEGORIES = [
             {"id": "convert-audio", "name": "Convert Audio", "desc": "Change between audio formats", "icon": "bi-music-note-beamed"},
             {"id": "convert-video", "name": "Convert Video", "desc": "Change between video formats", "icon": "bi-camera-video-fill"},
             {"id": "extract-audio", "name": "Extract Audio", "desc": "Pull audio track from a video", "icon": "bi-mic-fill"},
+            {"id": "audio-speed", "name": "Ubah Kecepatan Audio", "desc": "Percepat/perlambat audio tanpa mengubah nada suara", "icon": "bi-speedometer2"},
             {"id": "trim", "name": "Trim Media", "desc": "Cut audio or video by time range", "icon": "bi-scissors"},
             {"id": "compress-video", "name": "Compress Video", "desc": "Re-encode to a smaller file", "icon": "bi-file-zip-fill"},
             {"id": "video-to-gif", "name": "Video to GIF", "desc": "Convert clips to animated GIFs", "icon": "bi-file-earmark-play-fill"},
@@ -230,6 +231,7 @@ def _asset_version():
         os.path.join(_STATIC_DIR, "js", "main.js"),
         os.path.join(_STATIC_DIR, "js", "voice_recorder.js"),
         os.path.join(_STATIC_DIR, "js", "html_to_video.js"),
+        os.path.join(_STATIC_DIR, "js", "audio_speed.js"),
         os.path.join(_STATIC_DIR, "js", "pcm_recorder_processor.js"),
         os.path.join(_STATIC_DIR, "icon.svg"),
     ]

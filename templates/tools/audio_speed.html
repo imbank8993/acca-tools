@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Ubah Kecepatan Audio - ACCA Tools{% endblock %}
+{% block top_title %}Ubah Kecepatan Audio{% endblock %}
+{% block content %}
+<div class="tool-page plus-studio">
+  <div class="tool-header"><h1>Ubah Kecepatan Audio</h1><p>Percepat atau perlambat narasi tanpa mengubah tinggi nada suara (pitch).</p></div>
+  <div class="studio-card" id="speed-tool" data-ffmpeg="{{ '1' if ffmpeg_available else '0' }}">
+    <div class="studio-badge"><i class="bi bi-speedometer2"></i> Pengatur tempo</div>
+
+    <div class="upload-zone" id="speed-zone">
+      <input type="file" id="speed-file" accept=".wav,.mp3,.m4a,.aac,.ogg,.opus,.flac,audio/*">
+      <div class="upload-prompt">
+        <i class="bi bi-cloud-arrow-up"></i>
+        <p id="speed-file-name">Seret &amp; lepas file audio di sini</p>
+        <span>atau klik untuk memilih</span>
+        <small>WAV, MP3, M4A, OGG, FLAC</small>
+      </div>
+    </div>
+
+    <div class="speed-summary" id="speed-summary" hidden>
+      <div><span>Durasi asli</span><strong id="speed-original">–</strong></div>
+      <div><span>Kecepatan</span><strong id="speed-label">1,00×</strong></div>
+      <div><span>Perkiraan durasi baru</span><strong id="speed-estimate">–</strong></div>
+    </div>
+
+    <div class="speed-control">
+      <label for="speed-range">Kecepatan <span>0,5× (lebih lambat) – 2,0× (lebih cepat)</span></label>
+      <div class="range-group">
+        <input type="range" id="speed-range" min="0.5" max="2" step="0.01" value="1.1">
+        <input type="number" id="speed-number" min="0.5" max="2" step="0.01" value="1.1" aria-label="Kecepatan (angka)">
+      </div>
+      <div class="speed-chips" role="group" aria-label="Pilihan cepat">
+        <button type="button" class="btn btn-small" data-speed="0.9">0,9×</button>
+        <button type="button" class="btn btn-small" data-speed="1.1">1,1×</button>
+        <button type="button" class="btn btn-small" data-speed="1.25">1,25×</button>
+        <button type="button" class="btn btn-small" data-speed="1.5">1,5×</button>
+      </div>
+      <div class="speed-target">
+        <label for="speed-target">Atau tentukan durasi target <span>mm:dd, mis. 2:30</span></label>
+        <div><input type="text" id="speed-target" placeholder="2:30" inputmode="numeric"><button type="button" class="btn btn-small" id="speed-target-apply">Hitung kecepatan</button></div>
+      </div>
+    </div>
+
+    <p class="studio-hint" id="speed-engine">
+      {% if ffmpeg_available %}
+      WAV diproses langsung di browser (tanpa unggah) dan disimpan sebagai WAV dengan sample rate yang sama. Format lain (mis. MP3) diproses di server dengan FFmpeg <code>atempo</code> sehingga formatnya tetap sama.
+      {% else %}
+      Audio diproses langsung di browser (tanpa unggah, tanpa FFmpeg). Hasil disimpan sebagai WAV 16-bit dengan sample rate yang sama; file MP3 juga akan dihasilkan sebagai WAV.
+      {% endif %}
+    </p>
+
+    <div class="studio-actions">
+      <button id="speed-run" class="btn btn-primary" type="button" disabled><i class="bi bi-lightning-charge-fill"></i> Proses</button>
+      <span id="speed-status" role="status"></span>
+    </div>
+
+    <div id="speed-result" class="record-result" hidden>
+      <audio id="speed-preview" controls></audio>
+      <a id="speed-download" class="btn btn-success" download><i class="bi bi-download"></i> Unduh hasil</a>
+      <span id="speed-detail"></span>
+    </div>
+    <p id="speed-error" class="studio-error" role="alert" hidden></p>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/audio_speed.js') }}?v={{ asset_version }}"></script>{% endblock %}

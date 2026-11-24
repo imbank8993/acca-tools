@@ -869,6 +869,90 @@ def normalize_audio():
     return _media_response(data, mimetype=mime, download_name=f"{base}_normalized.{out_ext}")
 
 
+# ── Audio speed (tempo change, pitch preserved) ──────
+
+AUDIO_SPEED_MIN = 0.5
+AUDIO_SPEED_MAX = 2.0
+_AUDIO_SPEED_MIME = {
+    "mp3": "audio/mpeg", "wav": "audio/wav", "flac": "audio/flac", "ogg": "audio/ogg",
+    "m4a": "audio/mp4", "aac": "audio/aac", "opus": "audio/opus",
+}
+
+
+def atempo_chain(speed: float) -> str:
+    """Build an FFmpeg filter string for *speed*.
+
+    A single ``atempo`` only accepts 0.5–2.0, so larger changes are split
+    into a chain whose product equals the requested speed.
+    """
+    if speed <= 0:
+        raise ValueError("speed must be positive")
+    factors = []
+    while speed > 2.0:
+        factors.append(2.0)
+        speed /= 2.0
+    while speed < 0.5:
+        factors.append(0.5)
+        speed /= 0.5
+    factors.append(speed)
+    return ",".join("atempo=" + f"{f:.6f}".rstrip("0").rstrip(".") for f in factors)
+
+
+def _audio_stream(probe: dict | None) -> dict:
+    for stream in (probe or {}).get("streams", []):
+        if stream.get("codec_type") == "audio":
+            return stream
+    return {}
+
+
+@bp.route("/audio-speed", methods=["GET", "POST"])
+def audio_speed():
+    if request.method == "GET":
+        return render_template("tools/audio_speed.html", ffmpeg_available=bool(FFMPEG))
+
+    f = request.files.get("files")
+    if not f or not f.filename:
+        return jsonify({"error": NO_FILE_SINGLE}), 400
+    speed = safe_float(request.form.get("speed"), 1.0, AUDIO_SPEED_MIN, AUDIO_SPEED_MAX)
+
+    in_ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+    out_ext = in_ext if in_ext in _AUDIO_SPEED_MIME else "wav"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        in_path = _save_upload(f, tmp)
+        out_path = os.path.join(tmp, f"output.{out_ext}")
+        stream = _audio_stream(_probe_media(in_path))
+
+        args = ["-i", in_path, "-vn", "-map_metadata", "0", "-filter:a", atempo_chain(speed)]
+        # Keep the original sample rate and channel count.
+        if stream.get("sample_rate"):
+            args += ["-ar", str(stream["sample_rate"])]
+        if stream.get("channels"):
+            args += ["-ac", str(stream["channels"])]
+        if out_ext == "wav":
+            codec = stream.get("codec_name") or ""
+            args += ["-c:a", codec if codec.startswith("pcm_") else "pcm_s16le"]
+        elif out_ext == "flac":
+            args += ["-c:a", "flac"]
+        else:
+            if out_ext == "mp3":
+                args += ["-c:a", "libmp3lame"]
+            bitrate = safe_int(stream.get("bit_rate"), 0, 0, 512_000)
+            args += ["-b:a", f"{bitrate // 1000}k" if bitrate >= 32_000 else "192k"]
+        args += [out_path]
+
+        _, err = _run_ffmpeg(args, timeout=600)
+        if err:
+            return jsonify({"error": err}), 400
+        with open(out_path, "rb") as fp:
+            data = fp.read()
+
+    base = f.filename.rsplit(".", 1)[0]
+    label = f"{speed:.3f}".rstrip("0").rstrip(".")
+    return _media_response(data, mimetype=_AUDIO_SPEED_MIME[out_ext],
+                           download_name=f"{base}_{label}x.{out_ext}")
+
+
 # ── Speech to Text (Whisper, optional) ──────────────
 
 HAS_WHISPER = importlib.util.find_spec("whisper") is not None

@@ -270,6 +270,11 @@ ROUTE_REQUIREMENTS = {
     "/media/convert-audio": {"label": "Convert Audio", "primary": ["ffmpeg"], "fallback": None},
     "/media/convert-video": {"label": "Convert Video", "primary": ["ffmpeg"], "fallback": None},
     "/media/extract-audio": {"label": "Extract Audio", "primary": ["ffmpeg"], "fallback": None},
+    "/media/audio-speed": {
+        "label": "Ubah Kecepatan Audio",
+        "primary": [],
+        "fallback": "Without FFmpeg, audio is time-stretched in the browser (WSOLA) and saved as WAV.",
+    },
     "/media/trim": {"label": "Trim Media", "primary": ["ffmpeg"], "fallback": None},
     "/media/compress-video": {"label": "Compress Video", "primary": ["ffmpeg"], "fallback": None},
     "/media/video-to-gif": {"label": "Video to GIF", "primary": ["ffmpeg"], "fallback": None},

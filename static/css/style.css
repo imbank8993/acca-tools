@@ -1436,3 +1436,19 @@ select:not([multiple]) {
     background-size: 20px 20px;
     padding-right: 38px;
 }
+
+/* Audio speed tool */
+.speed-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 6px 0 22px; }
+.speed-summary[hidden] { display: none; }
+.speed-summary div { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; }
+.speed-summary span { color: var(--text-light); font-size: .8rem; }
+.speed-summary strong { font: 700 1.35rem/1.2 'Outfit', sans-serif; font-variant-numeric: tabular-nums; }
+.speed-control { display: grid; gap: 12px; }
+.speed-control > label, .speed-target label { font-weight: 600; color: var(--text); }
+.speed-control label span { color: var(--text-light); font-size: .82rem; font-weight: 400; margin-left: 4px; }
+.speed-control input[type="number"], .speed-target input { width: 6.5rem; border: 1px solid var(--border); border-radius: 10px; background: var(--bg, #fff); color: var(--text); padding: 8px 10px; font: inherit; }
+.speed-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.speed-chips .btn.active { background: var(--primary); color: #fff; }
+.speed-target { display: grid; gap: 8px; }
+.speed-target div { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#speed-status { color: var(--text-light); font-size: .88rem; }
